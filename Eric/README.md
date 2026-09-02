@@ -1,4 +1,93 @@
-﻿# Hi Eric
+# Eric - Group Project work package
 
+This folder implements Eric's assigned contribution to the COMPSYS 704
+Project 1 Group Project:
 
+- lid-loader controller and separate simulated plant;
+- capper controller and separate simulated plant;
+- labeller controller and separate simulated plant;
+- unloader controller and separate simulated plant;
+- live Workpiece Tracker and baseline recoverable persistence; and
+- Visualization Bridge and operator GUI.
 
+The implementation is deliberately independent of any Individual Project
+extension. A database, advanced fault-tolerant routing, or a richer digital
+twin can replace the small interfaces later, but none is required to compile,
+test, or demonstrate this GP baseline.
+
+## Implemented behaviour
+
+Each finishing controller implements the common lifecycle
+`OFFLINE -> READY -> BUSY -> DONE/FAULT`. It validates machine, operation,
+safety permit and preconditions; commands only its matching plant; and reports
+`DONE` only after that plant returns sensor evidence. `DONE` and `FAULT` remain
+latched until a correlated acknowledgement or safe reset. Optional
+`timeoutTicks` job data exercises the timeout-to-FAULT path.
+
+The Workpiece Tracker keeps the GP bottle twin: order, batch, product, recipe,
+confirmed location/table position, current/next/completed operations, actual
+stations, evidence timestamps, status/fault outcome and label payload. A
+dispatch alone never changes a confirmed operation or location. Completed
+twins are written atomically to a recoverable properties file.
+
+The Swing dashboard shows order/batch counts, safety and diagnostic status,
+input/rotary/output occupancy, controller states and live bottle twins. Its
+controls emit `OperatorCommand` objects through the `VisualizationBridge`; the
+GUI has no plant-actuator reference and therefore cannot bypass the shared
+Production Coordinator.
+
+## Layout
+
+```text
+Eric/
+|-- config/                   # Executable SystemJ CD/channel configuration
+|-- docs/                     # Shared integration contract and open decisions
+|-- scripts/                  # Build, test and GUI launch scripts
+|-- src/main/java/.../
+|   |-- controllers/          # Four local machine controllers
+|   |-- plants/               # Four separate deterministic plant models
+|   |-- tracking/             # Authoritative live workpiece state
+|   |-- persistence/          # Replaceable repository + recoverable GP baseline
+|   |-- gui/                  # Visualization boundary and Swing dashboard
+|   |-- model/                # Correlated immutable messages/state
+|   `-- tooling/              # Legacy SystemJ compiler compatibility launcher
+|-- src/test/java/.../        # Dependency-free acceptance tests
+`-- systemj/                  # Executable controller/plant contract smoke model
+```
+
+The proposed cross-member interface, integration steps and decisions requiring
+group agreement are in [docs/INTEGRATION.md](docs/INTEGRATION.md).
+
+## Build and test
+
+Prerequisites are a JDK with `java` and `javac` on `PATH`.
+
+```powershell
+.\Eric\scripts\build-and-test.ps1
+```
+
+This compiles with Java 8-compatible bytecode and tests the normal bottle
+route, all four controller/plant pairs, evidence-gated tracking, stale-result
+rejection, latching/acknowledgement, fault/reset/safety/timeout behaviour,
+multiple simultaneous workpieces, persistence recovery and the GUI boundary.
+
+To compile and execute the SystemJ clock-domain/channel contract, use:
+
+```powershell
+.\Eric\scripts\build-and-test-systemj.ps1
+```
+
+The script locates the supplied course SystemJ libraries automatically in the
+known lab locations, or accepts `-SystemJLibPath <path>`. It runs four
+coordinator-harness/controller/plant paths and requires a pass marker for each.
+The harness CDs stand in for the shared Production Coordinator during isolated
+testing; they are not an alternative coordinator implementation.
+
+To open the standalone visualization preview:
+
+```powershell
+.\Eric\scripts\run-gui.ps1
+```
+
+Runtime archives and compiled files are written under `Eric/build/`, which is
+ignored by Git.
