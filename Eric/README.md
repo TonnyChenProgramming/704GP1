@@ -60,6 +60,24 @@ group agreement are in [docs/INTEGRATION.md](docs/INTEGRATION.md).
 
 ## Build and test
 
+### Eclipse
+
+Import `Eric` using **File > Import > General > Existing Projects into Workspace**.
+Select the project `COMPSYS704-Eric` and leave **Copy projects into workspace**
+unchecked to work directly in this Git checkout. The project uses the workspace's
+default JRE and Java 8 source compatibility. Use an installed JDK 9 or newer for
+the PowerShell scripts (`javac --release 8`).
+
+Right-click `Eric Tests.launch` or `Eric GUI.launch` and choose **Run As >
+Eric Tests** or **Run As > Eric GUI**, respectively (some Eclipse versions show
+**Launch Configuration**). The test launch uses the Eric directory as its working
+directory so generated previews and archives are placed in `build/`.
+
+This configuration builds the Java components. Compile and run the SystemJ
+contract using `scripts/build-and-test-systemj.ps1`; `.sysj` compilation is not
+part of the Eclipse Java builder. Eclipse classes have a separate output directory,
+`build/eclipse-classes`, from the scripts' `build/classes` output.
+
 Prerequisites are a JDK with `java` and `javac` on `PATH`.
 
 ```powershell
