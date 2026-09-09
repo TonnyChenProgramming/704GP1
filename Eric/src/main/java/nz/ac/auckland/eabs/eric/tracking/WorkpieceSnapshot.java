@@ -7,6 +7,7 @@ import nz.ac.auckland.eabs.eric.model.WorkpieceStatus;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -30,6 +31,7 @@ public final class WorkpieceSnapshot {
     private final List<String> eventHistory;
     private final String finalOutcome;
     private final String labelPayload;
+    private final Map<String, String> actualDosedAmounts;
 
     public WorkpieceSnapshot(
             String workpieceId,
@@ -50,6 +52,33 @@ public final class WorkpieceSnapshot {
             List<String> eventHistory,
             String finalOutcome,
             String labelPayload) {
+        this(workpieceId, orderId, batchId, productId, requiredRecipe, location,
+                rotaryPosition, currentOperation, nextOperation, status,
+                requiredOperations, completedOperations, actualStationsUsed,
+                operationTimestamps, faultHistory, eventHistory, finalOutcome,
+                labelPayload, null);
+    }
+
+    public WorkpieceSnapshot(
+            String workpieceId,
+            String orderId,
+            String batchId,
+            String productId,
+            String requiredRecipe,
+            Location location,
+            int rotaryPosition,
+            Operation currentOperation,
+            Operation nextOperation,
+            WorkpieceStatus status,
+            List<Operation> requiredOperations,
+            List<Operation> completedOperations,
+            List<String> actualStationsUsed,
+            Map<Operation, String> operationTimestamps,
+            List<String> faultHistory,
+            List<String> eventHistory,
+            String finalOutcome,
+            String labelPayload,
+            Map<String, String> actualDosedAmounts) {
         this.workpieceId = workpieceId;
         this.orderId = orderId;
         this.batchId = batchId;
@@ -71,6 +100,9 @@ public final class WorkpieceSnapshot {
         this.eventHistory = immutableCopy(eventHistory);
         this.finalOutcome = finalOutcome == null ? "" : finalOutcome;
         this.labelPayload = labelPayload == null ? "" : labelPayload;
+        this.actualDosedAmounts = actualDosedAmounts == null ? null
+                : Collections.unmodifiableMap(
+                        new LinkedHashMap<String, String>(actualDosedAmounts));
     }
 
     private static <T> List<T> immutableCopy(List<T> values) {
@@ -97,6 +129,15 @@ public final class WorkpieceSnapshot {
     public List<String> getEventHistory() { return eventHistory; }
     public String getFinalOutcome() { return finalOutcome; }
     public String getLabelPayload() { return labelPayload; }
+
+    /**
+     * Confirmed filler evidence (liquidA and liquidB), or null if unavailable.
+     * Values retain the incoming strings and units; no conversion or deviation
+     * judgement is performed. The returned map is immutable.
+     */
+    public Map<String, String> getActualDosedAmounts() {
+        return actualDosedAmounts;
+    }
 
     public boolean isTerminal() {
         return status == WorkpieceStatus.COMPLETED

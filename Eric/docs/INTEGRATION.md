@@ -65,6 +65,54 @@ an operation complete merely because `START` was sent. Its recoverable-file
 repository is the GP baseline; a database-backed repository is an optional
 replacement and must not be required for normal GP operation.
 
+### Confirmed filler amounts (2026-09-09 addition)
+
+Tony's tracker change request is implemented at the existing Java
+`acceptReport(MachineReport)` boundary (called `confirmOperation()` in the
+request). Existing identity, batch, location, operation and status update rules
+are unchanged. No other controller or persistence implementation was changed.
+
+The provisional incoming evidence keys are `liquidA` and `liquidB`, exposed as
+`WorkpieceTracker.LIQUID_A_EVIDENCE_KEY` and `LIQUID_B_EVIDENCE_KEY`.
+`WorkpieceSnapshot.getActualDosedAmounts()` returns an immutable
+`Map<String, String>` containing those two entries, or `null` if unavailable.
+
+```java
+// fillJob must be the active, correlated FILL_TWO_LIQUIDS job.
+Map<String, String> result = new LinkedHashMap<String, String>();
+result.put(WorkpieceTracker.LIQUID_A_EVIDENCE_KEY, "100.1250");
+result.put(WorkpieceTracker.LIQUID_B_EVIDENCE_KEY, "400.5000");
+tracker.acceptReport(MachineReport.done(fillJob, "filled", result));
+Map<String, String> actual = tracker.findActive(fillJob.getWorkpieceId())
+        .get().getActualDosedAmounts();
+// Assembler must handle actual == null; missing is not zero.
+```
+
+- Only a matching filler `DONE` with both nonblank values populates the field.
+  Dispatch, BUSY and FAULT do not populate it; rejected stale/mismatched reports
+  cannot change it. Legacy DONE without amounts still completes normally.
+- Values remain the original strings, with no rounding, conversion or numerical
+  validation. Units are NOT established by this implementation. Tonny/Tony must
+  confirm the actual payload keys, types and units before integration; the
+  assembler must compare measurements and recipe targets in compatible units.
+- Non-filler reports do not supply this measurement. The bottle's last confirmed
+  filler amounts are retained through later operations and unloading, rather
+  than erased. This is the implementation interpretation of the request's
+  absent/null wording, not a newly agreed group decision.
+- The shared coordinator adapter still needs to forward the full filler result
+  into `MachineReport` evidence. This change does not establish or verify the
+  group's SystemJ wire format or end-to-end filler connection.
+- Tony's assembler can read a live snapshot, or the final snapshot returned by
+  `completeAndArchive(...)`. After archival the active twin is removed.
+  The existing recoverable-file schema is unchanged: **reloading that file does
+  not restore this new structured field**. Existing textual event evidence is
+  unchanged; dedicated structured persistence remains Tony's responsibility.
+
+Run `Eric/scripts/build-and-test.ps1` from the repository root, or refresh Eric
+in Eclipse and run **Eric Tests**. The dosing tests check confirmation timing,
+missing/partial evidence, zero values, stale and duplicate reports, immutable
+snapshots, bottle isolation and retention through finishing/unloading.
+
 ## GUI integration
 
 The coordinator-facing adapter publishes immutable `DashboardState` snapshots

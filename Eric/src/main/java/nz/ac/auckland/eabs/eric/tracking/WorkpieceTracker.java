@@ -26,6 +26,9 @@ import java.util.Optional;
  * evidence are allowed to change completed operations or physical location.
  */
 public final class WorkpieceTracker {
+    // Provisional evidence keys, to be aligned with the group's filler adapter.
+    public static final String LIQUID_A_EVIDENCE_KEY = "liquidA";
+    public static final String LIQUID_B_EVIDENCE_KEY = "liquidB";
     private final Map<String, WorkpieceTwin> active =
             new LinkedHashMap<String, WorkpieceTwin>();
     private final WorkpieceRepository repository;
@@ -185,6 +188,7 @@ public final class WorkpieceTracker {
         private String currentMachineId = "";
         private String finalOutcome = "";
         private String labelPayload = "";
+        private Map<String, String> actualDosedAmounts;
 
         private WorkpieceTwin(
                 String workpieceId,
@@ -268,6 +272,9 @@ public final class WorkpieceTracker {
                 return;
             }
             if (report.getState() == MachineState.DONE) {
+                if (currentOperation == Operation.FILL_TWO_LIQUIDS) {
+                    retainDosedAmounts(report.getEvidence());
+                }
                 completedOperations.add(currentOperation);
                 actualStationsUsed.add(currentMachineId);
                 operationTimestamps.put(
@@ -301,6 +308,21 @@ public final class WorkpieceTracker {
             eventHistory.add(event("FAULT_CLEARED", evidence));
             clearCurrentJob();
             status = WorkpieceStatus.WAITING;
+        }
+
+        private void retainDosedAmounts(Map<String, String> evidence) {
+            String liquidA = evidence.get(LIQUID_A_EVIDENCE_KEY);
+            String liquidB = evidence.get(LIQUID_B_EVIDENCE_KEY);
+            // Missing measurements do not change the existing DONE lifecycle.
+            // In particular, unknown amounts must never be replaced with zero.
+            if (liquidA == null || liquidA.trim().isEmpty()
+                    || liquidB == null || liquidB.trim().isEmpty()) {
+                return;
+            }
+            Map<String, String> amounts = new LinkedHashMap<String, String>();
+            amounts.put(LIQUID_A_EVIDENCE_KEY, liquidA);
+            amounts.put(LIQUID_B_EVIDENCE_KEY, liquidB);
+            actualDosedAmounts = Collections.unmodifiableMap(amounts);
         }
 
         private void complete(String finalLabelPayload) {
@@ -391,7 +413,8 @@ public final class WorkpieceTracker {
                     faultHistory,
                     eventHistory,
                     finalOutcome,
-                    labelPayload);
+                    labelPayload,
+                    actualDosedAmounts);
         }
 
         private static String event(String type, String detail) {

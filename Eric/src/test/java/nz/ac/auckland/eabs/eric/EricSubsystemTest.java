@@ -59,6 +59,7 @@ public final class EricSubsystemTest {
         testNormalRouteTrackingAndPersistence();
         testControllerFaultAndSafeReset();
         testVisualizationBoundary();
+        DosedAmountsTrackerTest.runAll();
         System.out.println("ERIC GP SUBSYSTEM TESTS PASSED");
     }
 
