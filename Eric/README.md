@@ -63,7 +63,7 @@ group agreement are in [docs/INTEGRATION.md](docs/INTEGRATION.md).
 ### Eclipse
 
 Import `Eric` using **File > Import > General > Existing Projects into Workspace**.
-Select the project `COMPSYS704-Eric` and leave **Copy projects into workspace**
+Select the project `Eric` and leave **Copy projects into workspace**
 unchecked to work directly in this Git checkout. The project uses the workspace's
 default JRE and Java 8 source compatibility. Use an installed JDK 9 or newer for
 the PowerShell scripts (`javac --release 8`).
