@@ -1,0 +1,84 @@
+<System xmlns="http://systemjtechnology.com">
+    <SubSystem Name="EricFinishingContract" Local="true">
+        <ClockDomain Name="LidHarnessCD" Class="LidHarnessCD">
+            <oChannel Name="jobOut" To="LidLoaderControllerCD.jobIn" />
+            <iChannel Name="reportIn" From="LidLoaderControllerCD.reportOut" />
+            <oChannel Name="ackOut" To="LidLoaderControllerCD.ackIn" />
+            <oChannel Name="controlOut" To="LidLoaderControllerCD.controlIn" />
+            <iChannel Name="controlReplyIn" From="LidLoaderControllerCD.controlReplyOut" />
+        </ClockDomain>
+        <ClockDomain Name="LidLoaderControllerCD" Class="LidLoaderControllerCD">
+            <iChannel Name="jobIn" From="LidHarnessCD.jobOut" />
+            <oChannel Name="reportOut" To="LidHarnessCD.reportIn" />
+            <iChannel Name="ackIn" From="LidHarnessCD.ackOut" />
+            <iChannel Name="controlIn" From="LidHarnessCD.controlOut" />
+            <oChannel Name="controlReplyOut" To="LidHarnessCD.controlReplyIn" />
+            <oChannel Name="plantCommandOut" To="LidLoaderPlantCD.commandIn" />
+            <iChannel Name="plantEvidenceIn" From="LidLoaderPlantCD.evidenceOut" />
+        </ClockDomain>
+        <ClockDomain Name="LidLoaderPlantCD" Class="LidLoaderPlantCD">
+            <iChannel Name="commandIn" From="LidLoaderControllerCD.plantCommandOut" />
+            <oChannel Name="evidenceOut" To="LidLoaderControllerCD.plantEvidenceIn" />
+        </ClockDomain>
+        <ClockDomain Name="CapperHarnessCD" Class="CapperHarnessCD">
+            <oChannel Name="jobOut" To="CapperControllerCD.jobIn" />
+            <iChannel Name="reportIn" From="CapperControllerCD.reportOut" />
+            <oChannel Name="ackOut" To="CapperControllerCD.ackIn" />
+            <oChannel Name="controlOut" To="CapperControllerCD.controlIn" />
+            <iChannel Name="controlReplyIn" From="CapperControllerCD.controlReplyOut" />
+        </ClockDomain>
+        <ClockDomain Name="CapperControllerCD" Class="CapperControllerCD">
+            <iChannel Name="jobIn" From="CapperHarnessCD.jobOut" />
+            <oChannel Name="reportOut" To="CapperHarnessCD.reportIn" />
+            <iChannel Name="ackIn" From="CapperHarnessCD.ackOut" />
+            <iChannel Name="controlIn" From="CapperHarnessCD.controlOut" />
+            <oChannel Name="controlReplyOut" To="CapperHarnessCD.controlReplyIn" />
+            <oChannel Name="plantCommandOut" To="CapperPlantCD.commandIn" />
+            <iChannel Name="plantEvidenceIn" From="CapperPlantCD.evidenceOut" />
+        </ClockDomain>
+        <ClockDomain Name="CapperPlantCD" Class="CapperPlantCD">
+            <iChannel Name="commandIn" From="CapperControllerCD.plantCommandOut" />
+            <oChannel Name="evidenceOut" To="CapperControllerCD.plantEvidenceIn" />
+        </ClockDomain>
+        <ClockDomain Name="LabelerHarnessCD" Class="LabelerHarnessCD">
+            <oChannel Name="jobOut" To="LabelerControllerCD.jobIn" />
+            <iChannel Name="reportIn" From="LabelerControllerCD.reportOut" />
+            <oChannel Name="ackOut" To="LabelerControllerCD.ackIn" />
+            <oChannel Name="controlOut" To="LabelerControllerCD.controlIn" />
+            <iChannel Name="controlReplyIn" From="LabelerControllerCD.controlReplyOut" />
+        </ClockDomain>
+        <ClockDomain Name="LabelerControllerCD" Class="LabelerControllerCD">
+            <iChannel Name="jobIn" From="LabelerHarnessCD.jobOut" />
+            <oChannel Name="reportOut" To="LabelerHarnessCD.reportIn" />
+            <iChannel Name="ackIn" From="LabelerHarnessCD.ackOut" />
+            <iChannel Name="controlIn" From="LabelerHarnessCD.controlOut" />
+            <oChannel Name="controlReplyOut" To="LabelerHarnessCD.controlReplyIn" />
+            <oChannel Name="plantCommandOut" To="LabelerPlantCD.commandIn" />
+            <iChannel Name="plantEvidenceIn" From="LabelerPlantCD.evidenceOut" />
+        </ClockDomain>
+        <ClockDomain Name="LabelerPlantCD" Class="LabelerPlantCD">
+            <iChannel Name="commandIn" From="LabelerControllerCD.plantCommandOut" />
+            <oChannel Name="evidenceOut" To="LabelerControllerCD.plantEvidenceIn" />
+        </ClockDomain>
+        <ClockDomain Name="UnloaderHarnessCD" Class="UnloaderHarnessCD">
+            <oChannel Name="jobOut" To="UnloaderControllerCD.jobIn" />
+            <iChannel Name="reportIn" From="UnloaderControllerCD.reportOut" />
+            <oChannel Name="ackOut" To="UnloaderControllerCD.ackIn" />
+            <oChannel Name="controlOut" To="UnloaderControllerCD.controlIn" />
+            <iChannel Name="controlReplyIn" From="UnloaderControllerCD.controlReplyOut" />
+        </ClockDomain>
+        <ClockDomain Name="UnloaderControllerCD" Class="UnloaderControllerCD">
+            <iChannel Name="jobIn" From="UnloaderHarnessCD.jobOut" />
+            <oChannel Name="reportOut" To="UnloaderHarnessCD.reportIn" />
+            <iChannel Name="ackIn" From="UnloaderHarnessCD.ackOut" />
+            <iChannel Name="controlIn" From="UnloaderHarnessCD.controlOut" />
+            <oChannel Name="controlReplyOut" To="UnloaderHarnessCD.controlReplyIn" />
+            <oChannel Name="plantCommandOut" To="UnloaderPlantCD.commandIn" />
+            <iChannel Name="plantEvidenceIn" From="UnloaderPlantCD.evidenceOut" />
+        </ClockDomain>
+        <ClockDomain Name="UnloaderPlantCD" Class="UnloaderPlantCD">
+            <iChannel Name="commandIn" From="UnloaderControllerCD.plantCommandOut" />
+            <oChannel Name="evidenceOut" To="UnloaderControllerCD.plantEvidenceIn" />
+        </ClockDomain>
+    </SubSystem>
+</System>

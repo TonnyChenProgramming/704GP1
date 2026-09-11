@@ -1,0 +1,296 @@
+// SystemJ owns concurrency, channels and timed plant steps.
+// Java endpoints own per-device data, strict codecs and reusable evidence checks.
+import nz.ac.auckland.eabs.eric.systemj.FinishingCycle;
+import nz.ac.auckland.eabs.eric.systemj.FinishingPlantEndpoint;
+
+LidLoaderControllerCD(
+    input String channel jobIn;
+    output String channel reportOut;
+    input String channel ackIn;
+    input String channel controlIn;
+    output String channel controlReplyOut;
+    output String channel plantCommandOut;
+    input String channel plantEvidenceIn;
+)->{
+    FinishingCycle signal cycleModel;
+    emit cycleModel(new FinishingCycle("LidLoaderController"));
+    // Read the committed valued signal on the next logical tick.
+    pause;
+    {
+        FinishingCycle cycle = (FinishingCycle)#cycleModel;
+        String control = ""; String response = "";
+        while(true){
+            receive controlIn; control = (String)#controlIn;
+            response = cycle.control(control); send controlReplyOut(response);
+            pause;
+        }
+    }
+    ||
+    {
+        FinishingCycle cycle = (FinishingCycle)#cycleModel;
+        String job = ""; String report = ""; String command = ""; String evidence = "";
+        boolean accepted = false;
+        // Flat FSM avoids nested rendezvous-loop expansion in the legacy compiler.
+        // 0 READY, 1 receive START, 2 plant step, 3 terminal report, 4 ACK/reset.
+        int stage = 0;
+        while(true){
+            if(stage == 0){
+                send reportOut("READY|LidLoaderController"); stage = 1;
+            }else if(stage == 1){
+                receive jobIn; job = (String)#jobIn;
+                accepted = cycle.accept(job); report = cycle.reply(); send reportOut(report);
+                if(accepted){ stage = 2; }else{ stage = 0; }
+            }else if(stage == 2){
+                command = cycle.nextPlantCommand(); send plantCommandOut(command);
+                receive plantEvidenceIn; evidence = (String)#plantEvidenceIn;
+                cycle.observe(evidence);
+                if(cycle.latched()){ stage = 3; }
+            }else if(stage == 3){
+                report = cycle.reply(); send reportOut(report); stage = 4;
+            }else if(stage == 4){
+                receive ackIn; job = (String)#ackIn;
+                command = cycle.acknowledge(job);
+                if(!command.equals("")){
+                    send plantCommandOut(command); receive plantEvidenceIn;
+                    evidence = (String)#plantEvidenceIn; cycle.finishAcknowledgement(evidence);
+                }
+                report = cycle.reply(); send reportOut(report);
+                if(!cycle.latched()){ stage = 1; }
+            }
+            pause;
+        }
+    }
+}
+
+LidLoaderPlantCD(
+    input String channel commandIn;
+    output String channel evidenceOut;
+)->{
+    FinishingPlantEndpoint plant = new FinishingPlantEndpoint("LidLoaderController");
+    String command = ""; String evidence = "";
+    while(true){
+        receive commandIn; command = (String)#commandIn;
+        if(command.startsWith("STEP|") || command.startsWith("ABORT|")){ waitl(10 ms); }
+        evidence = plant.accept(command); send evidenceOut(evidence);
+        pause;
+    }
+}
+
+CapperControllerCD(
+    input String channel jobIn;
+    output String channel reportOut;
+    input String channel ackIn;
+    input String channel controlIn;
+    output String channel controlReplyOut;
+    output String channel plantCommandOut;
+    input String channel plantEvidenceIn;
+)->{
+    FinishingCycle signal cycleModel;
+    emit cycleModel(new FinishingCycle("CapperController"));
+    // Read the committed valued signal on the next logical tick.
+    pause;
+    {
+        FinishingCycle cycle = (FinishingCycle)#cycleModel;
+        String control = ""; String response = "";
+        while(true){
+            receive controlIn; control = (String)#controlIn;
+            response = cycle.control(control); send controlReplyOut(response);
+            pause;
+        }
+    }
+    ||
+    {
+        FinishingCycle cycle = (FinishingCycle)#cycleModel;
+        String job = ""; String report = ""; String command = ""; String evidence = "";
+        boolean accepted = false;
+        // Flat FSM avoids nested rendezvous-loop expansion in the legacy compiler.
+        // 0 READY, 1 receive START, 2 plant step, 3 terminal report, 4 ACK/reset.
+        int stage = 0;
+        while(true){
+            if(stage == 0){
+                send reportOut("READY|CapperController"); stage = 1;
+            }else if(stage == 1){
+                receive jobIn; job = (String)#jobIn;
+                accepted = cycle.accept(job); report = cycle.reply(); send reportOut(report);
+                if(accepted){ stage = 2; }else{ stage = 0; }
+            }else if(stage == 2){
+                command = cycle.nextPlantCommand(); send plantCommandOut(command);
+                receive plantEvidenceIn; evidence = (String)#plantEvidenceIn;
+                cycle.observe(evidence);
+                if(cycle.latched()){ stage = 3; }
+            }else if(stage == 3){
+                report = cycle.reply(); send reportOut(report); stage = 4;
+            }else if(stage == 4){
+                receive ackIn; job = (String)#ackIn;
+                command = cycle.acknowledge(job);
+                if(!command.equals("")){
+                    send plantCommandOut(command); receive plantEvidenceIn;
+                    evidence = (String)#plantEvidenceIn; cycle.finishAcknowledgement(evidence);
+                }
+                report = cycle.reply(); send reportOut(report);
+                if(!cycle.latched()){ stage = 1; }
+            }
+            pause;
+        }
+    }
+}
+
+CapperPlantCD(
+    input String channel commandIn;
+    output String channel evidenceOut;
+)->{
+    FinishingPlantEndpoint plant = new FinishingPlantEndpoint("CapperController");
+    String command = ""; String evidence = "";
+    while(true){
+        receive commandIn; command = (String)#commandIn;
+        if(command.startsWith("STEP|") || command.startsWith("ABORT|")){ waitl(10 ms); }
+        evidence = plant.accept(command); send evidenceOut(evidence);
+        pause;
+    }
+}
+
+LabelerControllerCD(
+    input String channel jobIn;
+    output String channel reportOut;
+    input String channel ackIn;
+    input String channel controlIn;
+    output String channel controlReplyOut;
+    output String channel plantCommandOut;
+    input String channel plantEvidenceIn;
+)->{
+    FinishingCycle signal cycleModel;
+    emit cycleModel(new FinishingCycle("LabelerController"));
+    // Read the committed valued signal on the next logical tick.
+    pause;
+    {
+        FinishingCycle cycle = (FinishingCycle)#cycleModel;
+        String control = ""; String response = "";
+        while(true){
+            receive controlIn; control = (String)#controlIn;
+            response = cycle.control(control); send controlReplyOut(response);
+            pause;
+        }
+    }
+    ||
+    {
+        FinishingCycle cycle = (FinishingCycle)#cycleModel;
+        String job = ""; String report = ""; String command = ""; String evidence = "";
+        boolean accepted = false;
+        // Flat FSM avoids nested rendezvous-loop expansion in the legacy compiler.
+        // 0 READY, 1 receive START, 2 plant step, 3 terminal report, 4 ACK/reset.
+        int stage = 0;
+        while(true){
+            if(stage == 0){
+                send reportOut("READY|LabelerController"); stage = 1;
+            }else if(stage == 1){
+                receive jobIn; job = (String)#jobIn;
+                accepted = cycle.accept(job); report = cycle.reply(); send reportOut(report);
+                if(accepted){ stage = 2; }else{ stage = 0; }
+            }else if(stage == 2){
+                command = cycle.nextPlantCommand(); send plantCommandOut(command);
+                receive plantEvidenceIn; evidence = (String)#plantEvidenceIn;
+                cycle.observe(evidence);
+                if(cycle.latched()){ stage = 3; }
+            }else if(stage == 3){
+                report = cycle.reply(); send reportOut(report); stage = 4;
+            }else if(stage == 4){
+                receive ackIn; job = (String)#ackIn;
+                command = cycle.acknowledge(job);
+                if(!command.equals("")){
+                    send plantCommandOut(command); receive plantEvidenceIn;
+                    evidence = (String)#plantEvidenceIn; cycle.finishAcknowledgement(evidence);
+                }
+                report = cycle.reply(); send reportOut(report);
+                if(!cycle.latched()){ stage = 1; }
+            }
+            pause;
+        }
+    }
+}
+
+LabelerPlantCD(
+    input String channel commandIn;
+    output String channel evidenceOut;
+)->{
+    FinishingPlantEndpoint plant = new FinishingPlantEndpoint("LabelerController");
+    String command = ""; String evidence = "";
+    while(true){
+        receive commandIn; command = (String)#commandIn;
+        if(command.startsWith("STEP|") || command.startsWith("ABORT|")){ waitl(10 ms); }
+        evidence = plant.accept(command); send evidenceOut(evidence);
+        pause;
+    }
+}
+
+UnloaderControllerCD(
+    input String channel jobIn;
+    output String channel reportOut;
+    input String channel ackIn;
+    input String channel controlIn;
+    output String channel controlReplyOut;
+    output String channel plantCommandOut;
+    input String channel plantEvidenceIn;
+)->{
+    FinishingCycle signal cycleModel;
+    emit cycleModel(new FinishingCycle("UnloaderController"));
+    // Read the committed valued signal on the next logical tick.
+    pause;
+    {
+        FinishingCycle cycle = (FinishingCycle)#cycleModel;
+        String control = ""; String response = "";
+        while(true){
+            receive controlIn; control = (String)#controlIn;
+            response = cycle.control(control); send controlReplyOut(response);
+            pause;
+        }
+    }
+    ||
+    {
+        FinishingCycle cycle = (FinishingCycle)#cycleModel;
+        String job = ""; String report = ""; String command = ""; String evidence = "";
+        boolean accepted = false;
+        // Flat FSM avoids nested rendezvous-loop expansion in the legacy compiler.
+        // 0 READY, 1 receive START, 2 plant step, 3 terminal report, 4 ACK/reset.
+        int stage = 0;
+        while(true){
+            if(stage == 0){
+                send reportOut("READY|UnloaderController"); stage = 1;
+            }else if(stage == 1){
+                receive jobIn; job = (String)#jobIn;
+                accepted = cycle.accept(job); report = cycle.reply(); send reportOut(report);
+                if(accepted){ stage = 2; }else{ stage = 0; }
+            }else if(stage == 2){
+                command = cycle.nextPlantCommand(); send plantCommandOut(command);
+                receive plantEvidenceIn; evidence = (String)#plantEvidenceIn;
+                cycle.observe(evidence);
+                if(cycle.latched()){ stage = 3; }
+            }else if(stage == 3){
+                report = cycle.reply(); send reportOut(report); stage = 4;
+            }else if(stage == 4){
+                receive ackIn; job = (String)#ackIn;
+                command = cycle.acknowledge(job);
+                if(!command.equals("")){
+                    send plantCommandOut(command); receive plantEvidenceIn;
+                    evidence = (String)#plantEvidenceIn; cycle.finishAcknowledgement(evidence);
+                }
+                report = cycle.reply(); send reportOut(report);
+                if(!cycle.latched()){ stage = 1; }
+            }
+            pause;
+        }
+    }
+}
+
+UnloaderPlantCD(
+    input String channel commandIn;
+    output String channel evidenceOut;
+)->{
+    FinishingPlantEndpoint plant = new FinishingPlantEndpoint("UnloaderController");
+    String command = ""; String evidence = "";
+    while(true){
+        receive commandIn; command = (String)#commandIn;
+        if(command.startsWith("STEP|") || command.startsWith("ABORT|")){ waitl(10 ms); }
+        evidence = plant.accept(command); send evidenceOut(evidence);
+        pause;
+    }
+}

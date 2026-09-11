@@ -1,0 +1,103 @@
+// Production controller/plant declarations are in finishing_devices.sysj.
+// This file contains test harnesses only. Never connect them to the real POS.
+import nz.ac.auckland.eabs.eric.FinishingSystemJPlan;
+
+LidHarnessCD(
+    output String channel jobOut;
+    input String channel reportIn;
+    output String channel ackOut;
+    output String channel controlOut;
+    input String channel controlReplyIn;
+)->{
+    FinishingSystemJPlan test = new FinishingSystemJPlan("LidLoaderController", "LID");
+    String action = ""; String value = ""; String report = "";
+    while(!test.action().equals("FINISHED")){
+        action = test.action(); value = test.value();
+        if(action.equals("JOB")){ send jobOut(value); test.sent(); }
+        else if(action.equals("ACK")){ send ackOut(value); test.sent(); }
+        else if(action.equals("REPORT")){ receive reportIn; report = (String)#reportIn; test.check(report); }
+        else if(action.equals("CONTROL")){
+            send controlOut(value); receive controlReplyIn;
+            report = (String)#controlReplyIn; test.check(report);
+        }
+        else if(action.equals("WAIT")){ waitl(100 ms); test.sent(); }
+        pause;
+    }
+    test.complete();
+    while(true){ pause; }
+}
+
+CapperHarnessCD(
+    output String channel jobOut;
+    input String channel reportIn;
+    output String channel ackOut;
+    output String channel controlOut;
+    input String channel controlReplyIn;
+)->{
+    FinishingSystemJPlan test = new FinishingSystemJPlan("CapperController", "CAPPER");
+    String action = ""; String value = ""; String report = "";
+    while(!test.action().equals("FINISHED")){
+        action = test.action(); value = test.value();
+        if(action.equals("JOB")){ send jobOut(value); test.sent(); }
+        else if(action.equals("ACK")){ send ackOut(value); test.sent(); }
+        else if(action.equals("REPORT")){ receive reportIn; report = (String)#reportIn; test.check(report); }
+        else if(action.equals("CONTROL")){
+            send controlOut(value); receive controlReplyIn;
+            report = (String)#controlReplyIn; test.check(report);
+        }
+        else if(action.equals("WAIT")){ waitl(100 ms); test.sent(); }
+        pause;
+    }
+    test.complete();
+    while(true){ pause; }
+}
+
+LabelerHarnessCD(
+    output String channel jobOut;
+    input String channel reportIn;
+    output String channel ackOut;
+    output String channel controlOut;
+    input String channel controlReplyIn;
+)->{
+    FinishingSystemJPlan test = new FinishingSystemJPlan("LabelerController", "LABELER");
+    String action = ""; String value = ""; String report = "";
+    while(!test.action().equals("FINISHED")){
+        action = test.action(); value = test.value();
+        if(action.equals("JOB")){ send jobOut(value); test.sent(); }
+        else if(action.equals("ACK")){ send ackOut(value); test.sent(); }
+        else if(action.equals("REPORT")){ receive reportIn; report = (String)#reportIn; test.check(report); }
+        else if(action.equals("CONTROL")){
+            send controlOut(value); receive controlReplyIn;
+            report = (String)#controlReplyIn; test.check(report);
+        }
+        else if(action.equals("WAIT")){ waitl(100 ms); test.sent(); }
+        pause;
+    }
+    test.complete();
+    while(true){ pause; }
+}
+
+UnloaderHarnessCD(
+    output String channel jobOut;
+    input String channel reportIn;
+    output String channel ackOut;
+    output String channel controlOut;
+    input String channel controlReplyIn;
+)->{
+    FinishingSystemJPlan test = new FinishingSystemJPlan("UnloaderController", "UNLOADER");
+    String action = ""; String value = ""; String report = "";
+    while(!test.action().equals("FINISHED")){
+        action = test.action(); value = test.value();
+        if(action.equals("JOB")){ send jobOut(value); test.sent(); }
+        else if(action.equals("ACK")){ send ackOut(value); test.sent(); }
+        else if(action.equals("REPORT")){ receive reportIn; report = (String)#reportIn; test.check(report); }
+        else if(action.equals("CONTROL")){
+            send controlOut(value); receive controlReplyIn;
+            report = (String)#controlReplyIn; test.check(report);
+        }
+        else if(action.equals("WAIT")){ waitl(100 ms); test.sent(); }
+        pause;
+    }
+    test.complete();
+    while(true){ pause; }
+}
