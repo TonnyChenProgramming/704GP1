@@ -1,27 +1,23 @@
 <System xmlns="http://systemjtechnology.com">
-
-	<SubSystem Name="TwoLiquidFillerSubsystem" Local="true">
-
-		<ClockDomain Name="TwoLiquidFillerControllerCD" Class="TwoLiquidFillerController">
-            <oChannel Name="valve1" To="TwoLiquidFillerPlantCD.valve1"/>
-            <oChannel Name="valve2" To="TwoLiquidFillerPlantCD.valve2"/>
+    <SubSystem Name="TwoLiquidFillerSubsystem" Local="true">
+        <ClockDomain Name="TwoLiquidFillerControllerCD" Class="TwoLiquidFillerController">
+            <iChannel Name="commandIn" From="CoordinatorCD.fillerJobOut"/>
+            <oChannel Name="reportOut" To="CoordinatorCD.fillerReportIn"/>
+            <iChannel Name="ackIn" From="CoordinatorCD.fillerAckOut"/>
+            <oChannel Name="dose1" To="TwoLiquidFillerPlantCD.dose1"/>
+            <oChannel Name="dose2" To="TwoLiquidFillerPlantCD.dose2"/>
             <iChannel Name="bottlePresent" From="TwoLiquidFillerPlantCD.bottlePresent"/>
-            <iChannel Name="amount1" From="TwoLiquidFillerPlantCD.amount1"/>
-            <iChannel Name="amount2" From="TwoLiquidFillerPlantCD.amount2"/>
-            <iChannel Name="level" From="TwoLiquidFillerPlantCD.level"/>
+            <iChannel Name="dose1Done" From="TwoLiquidFillerPlantCD.dose1Done"/>
+            <iChannel Name="dose2Done" From="TwoLiquidFillerPlantCD.dose2Done"/>
             <iChannel Name="overflow" From="TwoLiquidFillerPlantCD.overflow"/>
-		</ClockDomain>
-
-		<ClockDomain Name="TwoLiquidFillerPlantCD" Class="TwoLiquidFillerPlant">
-            <iChannel Name="valve1" From="TwoLiquidFillerControllerCD.valve1"/>
-            <iChannel Name="valve2" From="TwoLiquidFillerControllerCD.valve2"/>
+        </ClockDomain>
+        <ClockDomain Name="TwoLiquidFillerPlantCD" Class="TwoLiquidFillerPlant">
+            <iChannel Name="dose1" From="TwoLiquidFillerControllerCD.dose1"/>
+            <iChannel Name="dose2" From="TwoLiquidFillerControllerCD.dose2"/>
             <oChannel Name="bottlePresent" To="TwoLiquidFillerControllerCD.bottlePresent"/>
-            <oChannel Name="amount1" To="TwoLiquidFillerControllerCD.amount1"/>
-            <oChannel Name="amount2" To="TwoLiquidFillerControllerCD.amount2"/>
-            <oChannel Name="level" To="TwoLiquidFillerControllerCD.level"/>
+            <oChannel Name="dose1Done" To="TwoLiquidFillerControllerCD.dose1Done"/>
+            <oChannel Name="dose2Done" To="TwoLiquidFillerControllerCD.dose2Done"/>
             <oChannel Name="overflow" To="TwoLiquidFillerControllerCD.overflow"/>
-		</ClockDomain>
-
-	</SubSystem>
-
+        </ClockDomain>
+    </SubSystem>
 </System>

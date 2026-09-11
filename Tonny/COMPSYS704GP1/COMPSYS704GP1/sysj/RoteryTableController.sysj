@@ -1,12 +1,19 @@
 RotaryTableController(
 
-    input String channel commandIn;
-    output String channel reportOut;
+    // coordinator --> controller
+
+    input signal rotateTrigger;
+
+    // controller --> coordinator
+
+    output signal tableAligned;
 
     // controller --> plant
+
     output Boolean channel rotate;
 
     // plant --> controller
+
     input Boolean channel aligned;
     input String channel occupancy;
 
@@ -14,91 +21,49 @@ RotaryTableController(
 
     while(true){
 
-        send reportOut("READY");
+        await(rotateTrigger);
 
 
-        receive commandIn;
+        System.out.println(
+            "ROTATE trigger received"
+        );
 
-        String command = (String)#commandIn;
+
+        // Request one 60-degree rotation
+
+        send rotate(true);
 
 
-        if(command.startsWith("START|")){
+        // Wait until table is physically aligned
 
-            String workpieceId = command.substring(6);
+        receive aligned;
+
+
+        if((Boolean)#aligned){
 
             System.out.println(
-                "START received for " + workpieceId
+                "Table aligned"
             );
 
 
-            send reportOut(
-                "BUSY|" + workpieceId
+            receive occupancy;
+
+            String currentOccupancy =
+                (String)#occupancy;
+
+
+            System.out.println(
+                "Current occupancy: " +
+                currentOccupancy
             );
 
-            // Request one 60-degree rotation
 
-            send rotate(true);
+            // Confirm completion to Coordinator
 
-            // Wait until table is physically aligned
-
-            receive aligned;
-
-            if((Boolean)#aligned){
-
-                System.out.println(
-                    "Table aligned"
-                );
-
-                // Read confirmed physical occupancy
-
-                receive occupancy;
-
-                String currentOccupancy = (String)#occupancy;
-
-                System.out.println(
-                    "Current occupancy: " + currentOccupancy
-                );
-
-
-                send reportOut(
-                    "DONE|" + workpieceId
-                );
-
-            }
-
-            else{
-
-                send reportOut(
-                    "FAULT|" + workpieceId + "|TABLE_NOT_ALIGNED"
-                );
-
-            }
+            emit tableAligned;
 
         }
 
-        else if(command.equals("RESET")){
-
-            System.out.println(
-                "RESET received"
-            );
-
-        }
-
-        else if(command.equals("STOP")){
-
-            System.out.println(
-                "STOP received"
-            );
-
-        }
-
-        else{
-
-            System.out.println(
-                "Unknown command: " + command
-            );
-
-        }
 
         pause;
 

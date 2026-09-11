@@ -9,7 +9,7 @@ RotaryTablePlant(
 
 )->{
 
-    String positionOccupancy = "100000";
+    String positionOccupancy = "000000";
 
     while(true){
 

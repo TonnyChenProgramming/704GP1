@@ -2,6 +2,7 @@ BottleLoaderController(
 
     input String channel commandIn;
     output String channel reportOut;
+    input String channel ackIn;
 
     output Boolean channel load;
     output Boolean channel retract;
@@ -12,107 +13,109 @@ BottleLoaderController(
 
 )->{
 
-    while(true){
+    send reportOut("READY|LOADER");
 
-        send reportOut("READY");
+    while(true){
 
         receive commandIn;
 
         String command = (String)#commandIn;
 
+        int first = command.indexOf("|");
+        int second = command.indexOf("|", first + 1);
+        int third = command.indexOf("|", second + 1);
+
+        String jobId = command.substring(first + 1, second);
+        String workpieceId = command.substring(second + 1, third);
+
+        System.out.println(
+            "START received for " + workpieceId
+        );
 
 
-        if(command.startsWith("START|")){
+        receive bottleAvailable;
 
-            String workpieceId = command.substring(6);
 
-            System.out.println(
-                "START received for " + workpieceId
+        if((Boolean)#bottleAvailable){
+
+            send reportOut(
+                "BUSY|" +
+                jobId + "|" +
+                workpieceId +
+                "|LOADER"
             );
 
 
-            // Check bottle availability
-            receive bottleAvailable;
+            send load(true);
+
+            receive placed;
 
 
-            if((Boolean)#bottleAvailable){
+            if((Boolean)#placed){
 
-                // Bottle exists -> start processing
-                send reportOut(
-                    "BUSY|" + workpieceId
-                );
+                send retract(true);
 
-
-                send load(true);
-
-                receive placed;
+                receive armHome;
 
 
-                if((Boolean)#placed){
+                if((Boolean)#armHome){
+
+                    send reportOut(
+                        "DONE|" +
+                        jobId + "|" +
+                        workpieceId +
+                        "|LOADER|OK|bottlePlaced=true"
+                    );
 
 
-                    send retract(true);
-
-                    receive armHome;
-
-
-                    if((Boolean)#armHome){
-
-                        send reportOut(
-                            "DONE|" + workpieceId
-                        );
-
-                    }
-                    else{
-
-                        send reportOut(
-                            "FAULT|" + workpieceId + "|ARM_NOT_HOME"
-                        );
-                    }
-
-                }
-                else{
+                    receive ackIn;
 
 
                     send reportOut(
-                        "FAULT|" + workpieceId + "|BOTTLE_NOT_PLACED"
+                        "READY|LOADER"
                     );
+
+                }
+
+                else{
+
+                    send reportOut(
+                        "FAULT|" +
+                        jobId + "|" +
+                        workpieceId +
+                        "|LOADER|ARM_NOT_HOME"
+                    );
+
                 }
 
             }
+
             else{
 
-
                 send reportOut(
-                    "FAULT|" + workpieceId + "|NO_BOTTLE_AVAILABLE"
+                    "FAULT|" +
+                    jobId + "|" +
+                    workpieceId +
+                    "|LOADER|BOTTLE_NOT_PLACED"
                 );
+
             }
-        }
-
-        else if(command.equals("RESET")){
-
-            System.out.println(
-                "RESET received"
-            );
-
-        }
-
-        else if(command.equals("STOP")){
-
-            System.out.println(
-                "STOP received"
-            );
 
         }
 
         else{
 
-            System.out.println(
-                "Unknown command: " + command
+            send reportOut(
+                "FAULT|" +
+                jobId + "|" +
+                workpieceId +
+                "|LOADER|NO_BOTTLE_AVAILABLE"
             );
 
         }
 
         pause;
+
     }
+
 }

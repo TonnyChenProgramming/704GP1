@@ -14,6 +14,6 @@
     <stringAttribute key="org.eclipse.jdt.launching.JRE_CONTAINER" value="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/jdk-11.0.32.9-hotspot/"/>
     <stringAttribute key="org.eclipse.jdt.launching.MAIN_TYPE" value="com.systemj.compiler.JavaPrettyPrinter"/>
     <stringAttribute key="org.eclipse.jdt.launching.MODULE_NAME" value="COMPSYS704_Lab_3"/>
-    <stringAttribute key="org.eclipse.jdt.launching.PROGRAM_ARGUMENTS" value="-d src sysj/TwoLiquidFillerPlant.sysj"/>
+    <stringAttribute key="org.eclipse.jdt.launching.PROGRAM_ARGUMENTS" value="-d src sysj/TwoLiquidFillerController.sysj"/>
     <stringAttribute key="org.eclipse.jdt.launching.PROJECT_ATTR" value="COMPSYS704_Lab_3"/>
 </launchConfiguration>

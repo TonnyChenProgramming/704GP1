@@ -1,78 +1,95 @@
 ConveyorController(
 
     input String channel commandIn;
+
     output String channel reportOut;
 
+    input String channel ackIn;
+
     output Boolean channel motorRun;
-    
+
     input Boolean channel photoEye;
+
     input Boolean channel bottleLeft;
 
 )->{
 
+    send reportOut("READY|CONVEYOR");
+
     while(true){
-
-        send reportOut("READY");
-
 
         receive commandIn;
 
         String command = (String)#commandIn;
 
+        int first = command.indexOf("|");
 
-        if(command.startsWith("START|")){
+        int second =
+            command.indexOf("|", first + 1);
 
-            String workpieceId = command.substring(6);
+        int third =
+            command.indexOf("|", second + 1);
+
+        String jobId =
+            command.substring(
+                first + 1,
+                second
+            );
+
+        String workpieceId =
+            command.substring(
+                second + 1,
+                third
+            );
+
+
+        System.out.println(
+            "START received for " + workpieceId
+        );
+
+
+        send reportOut(
+            "BUSY|" +
+            jobId + "|" +
+            workpieceId +
+            "|CONVEYOR"
+        );
+
+
+        send motorRun(true);
+
+
+        receive photoEye;
+
+
+        if((Boolean)#photoEye){
 
             System.out.println(
-                "START received for " + workpieceId
+                "Bottle detected by photo eye"
             );
 
 
-            send reportOut(
-                "BUSY|" + workpieceId
-            );
+            receive bottleLeft;
 
 
-            // Start conveyor
-            send motorRun(true);
+            if((Boolean)#bottleLeft){
 
+                send motorRun(false);
 
-            // Wait until bottle reaches photo eye
-            receive photoEye;
-
-
-            if((Boolean)#photoEye){
-
-                System.out.println(
-                    "Bottle detected by photo eye"
+                send reportOut(
+                    "DONE|" +
+                    jobId + "|" +
+                    workpieceId +
+                    "|CONVEYOR|OK|bottleMoved=true"
                 );
 
 
-                // Wait until bottle leaves conveyor section
-                receive bottleLeft;
+                receive ackIn;
 
 
-                if((Boolean)#bottleLeft){
-
-                    // Stop conveyor
-                    send motorRun(false);
-
-                    send reportOut(
-                        "DONE|" + workpieceId
-                    );
-
-                }
-
-                else{
-
-                    send motorRun(false);
-
-                    send reportOut(
-                        "FAULT|" + workpieceId + "|BOTTLE_NOT_LEFT"
-                    );
-
-                }
+                send reportOut(
+                    "READY|CONVEYOR"
+                );
 
             }
 
@@ -81,35 +98,25 @@ ConveyorController(
                 send motorRun(false);
 
                 send reportOut(
-                    "FAULT|" + workpieceId + "|PHOTO_EYE_NOT_TRIGGERED"
+                    "FAULT|" +
+                    jobId + "|" +
+                    workpieceId +
+                    "|CONVEYOR|BOTTLE_NOT_LEFT"
                 );
 
             }
 
         }
 
-        else if(command.equals("RESET")){
-
-            System.out.println(
-                "RESET received"
-            );
-
-        }
-
-        else if(command.equals("STOP")){
-
-            System.out.println(
-                "STOP received"
-            );
+        else{
 
             send motorRun(false);
 
-        }
-
-        else{
-
-            System.out.println(
-                "Unknown command: " + command
+            send reportOut(
+                "FAULT|" +
+                jobId + "|" +
+                workpieceId +
+                "|CONVEYOR|PHOTO_EYE_NOT_TRIGGERED"
             );
 
         }
