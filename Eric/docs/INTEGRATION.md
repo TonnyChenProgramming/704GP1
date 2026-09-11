@@ -19,18 +19,27 @@ controllers.
 
 ## Proposed correlated message contract
 
-The executable SystemJ smoke model currently uses pipe-delimited String-valued
-channels because the supplied legacy SystemJ compiler cannot reliably process
-the modern immutable Java message classes on the installed JDK.
+The executable dynamic SystemJ model uses pipe-delimited String-valued channels
+as a small legacy-compiler boundary. The complete current codec, channel names,
+ordering, safety/reset exchange, tests and limitations are specified in
+[FINISHING_SYSTEMJ.md](FINISHING_SYSTEMJ.md). Earlier fixed-ID smoke frames are
+superseded by this local contract; adoption by the other members is still open.
 
 ```text
-START|jobId|workpieceId|machineId|operation
+START|jobId|workpieceId|machineId|operation|key=encodedValue...
 READY|machineId
 BUSY|jobId|workpieceId|machineId
-DONE|jobId|workpieceId|machineId|sensorEvidence
-FAULT|jobId|workpieceId|machineId|reason
+DONE|jobId|workpieceId|machineId|safe=true|sensorKey=encodedValue...
+FAULT|jobId|workpieceId|machineId|safe=true/false|reason=encodedValue...
 ACK|jobId|workpieceId
 ```
+
+Data values use UTF-8 URL-form encoding; fields themselves are pipe-delimited.
+Rejected STARTs return REJECTED then READY without BUSY or actuation. Faulted
+jobs require CLEAR_FAULT and RESET, not ordinary ACK. Permission and stop travel
+on an independently serviced control channel with correlated replies. These
+additional messages and rendezvous ordering must be handled by the coordinator
+adapter; changing just the START string in an old stub is insufficient.
 
 The Java model represents the same semantics with `FinishingJob` and
 `MachineReport`, including a map for `operationData` and sensor evidence. The
@@ -45,11 +54,25 @@ decision. Whatever encoding is selected must retain both `jobId` and
 | LidLoaderController | `PLACE_LID` | bottle present, filling complete, lid available | lid present, placement complete, arm home |
 | CapperController | `CAP_BOTTLE` | bottle present, lid present | cap secured, clamp home, gripper home, cycle complete |
 | LabelerController | `APPLY_LABEL` | bottle present, manufacturing complete, label payload | bottle stopped, label applied, bottle released, label payload |
-| UnloaderController | `UNLOAD` | bottle present, collection available | bottle collected, output path clear, cycle complete |
+| UnloaderController | `UNLOAD` | bottle present, collection available | bottle collected, output path clear, terminal phase complete |
 
 All four controllers require the global safety permit. A successful report is
 latched at `DONE` until the matching `ACK`; a failure is latched at `FAULT`
 until the hazard/plant fault is cleared and a safe reset is requested.
+
+In the new SystemJ endpoint, READY advertises receiver availability while
+permission initially remains false. Plant precondition values in a START frame
+are isolated simulation inputs, not proof of integrated table sensors. The
+plant uses timed phases and withholds planned final evidence until completion.
+The no-progress timeout does not detect a completely unresponsive channel; a
+communication watchdog/cancellable exchange remains an integration dependency.
+
+Verification on 11 September: all four dynamic pairs passed the real 12-CD
+course runtime (71 checked channel responses per pair), in addition to the Java
+subsystem suite and its 348 new endpoint checks. Tests include multiple arbitrary
+IDs, wrong ACKs, invalid/duplicate START, plant fault, timeout, stale/missing
+evidence, active stop, safety loss and repair/reset. These results do not verify
+the shared coordinator, POS, tracker forwarding or live dashboard integration.
 
 ## Tracker integration
 
