@@ -1,3 +1,4 @@
+#requires -Version 7.0
 param(
     [string]$SystemJLibPath = ''
 )
@@ -19,7 +20,10 @@ $ericRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $classRoot = Join-Path $ericRoot 'build\classes'
 $generatedRoot = Join-Path $ericRoot 'build\generated-systemj'
 $stagedLibraryRoot = Join-Path $ericRoot 'build\systemj-lib'
-$systemJSource = Join-Path $ericRoot 'systemj\finishing_contract.sysj'
+$systemJSources = @(
+    (Join-Path $ericRoot 'systemj\finishing_devices.sysj'),
+    (Join-Path $ericRoot 'systemj\finishing_contract.sysj')
+)
 
 & (Join-Path $PSScriptRoot 'build-and-test.ps1')
 
@@ -29,6 +33,10 @@ if (-not (Test-Path -LiteralPath $sourceCompilerJar)) {
 }
 
 New-Item -ItemType Directory -Path $generatedRoot -Force | Out-Null
+$resolvedGenerated = (Resolve-Path -LiteralPath $generatedRoot).Path
+if (-not $resolvedGenerated.StartsWith($ericRoot + '\build\', [StringComparison]::OrdinalIgnoreCase)) {
+    throw "Generated output escaped Eric/build: $resolvedGenerated"
+}
 Get-ChildItem -LiteralPath $generatedRoot -Filter '*.java' -File |
     Remove-Item -Force
 
@@ -43,9 +51,48 @@ foreach ($jar in $sourceLibraryJars) {
 $libraryJars = Get-ChildItem -LiteralPath $stagedLibraryRoot -Filter '*.jar' -File |
     Select-Object -ExpandProperty FullName
 $classpath = (@($libraryJars) + $classRoot) -join ';'
-& java -cp $classpath nz.ac.auckland.eabs.eric.tooling.SystemJCompilerLauncher -d $generatedRoot --nojavac --silence -- $systemJSource
-if ($LASTEXITCODE -ne 0) {
-    throw 'Eric SystemJ source generation failed.'
+
+# Every child is bounded, hidden, checked for exit failure, and killed only by
+# its owned Process handle. A stuck compiler/runtime must not pass on stale classes.
+function Invoke-FinishingProcess([string]$Program, [string[]]$Arguments, [int]$TimeoutMs = 60000) {
+    $info = [System.Diagnostics.ProcessStartInfo]::new()
+    $info.FileName = (Get-Command $Program).Source
+    $info.WorkingDirectory = $ericRoot
+    $info.UseShellExecute = $false
+    $info.CreateNoWindow = $true
+    $info.RedirectStandardOutput = $true
+    $info.RedirectStandardError = $true
+    foreach ($argument in $Arguments) { $info.ArgumentList.Add($argument) }
+    $child = [System.Diagnostics.Process]::new()
+    $child.StartInfo = $info
+    $started = $false
+    try {
+        $null = $child.Start()
+        $started = $true
+        $stdout = $child.StandardOutput.ReadToEndAsync()
+        $stderr = $child.StandardError.ReadToEndAsync()
+        if (-not $child.WaitForExit($TimeoutMs)) {
+            $child.Kill($true); $child.WaitForExit()
+            $partialOutput = $stdout.GetAwaiter().GetResult()
+            $partialErrors = $stderr.GetAwaiter().GetResult()
+            throw "$Program timed out after $TimeoutMs ms. No successful verification is recorded.`n$partialOutput`n$partialErrors"
+        }
+        $output = $stdout.GetAwaiter().GetResult()
+        $errors = $stderr.GetAwaiter().GetResult()
+        if ($errors) { Write-Host $errors }
+        if ($child.ExitCode -ne 0) { throw "$Program exited with code $($child.ExitCode): $output" }
+        return $output
+    } finally {
+        if ($started -and -not $child.HasExited) { $child.Kill($true); $child.WaitForExit() }
+        $child.Dispose()
+    }
+}
+foreach ($systemJSource in $systemJSources) {
+    Write-Host "Generating SystemJ: $systemJSource"
+    $generationOutput = Invoke-FinishingProcess 'java' @('-Xmx384m', '-cp', $classpath,
+        'nz.ac.auckland.eabs.eric.tooling.SystemJCompilerLauncher', '-d', $generatedRoot,
+        '--nojavac', '--silence', '--', $systemJSource)
+    if ($generationOutput) { Write-Host $generationOutput }
 }
 
 $generatedSources = @(
@@ -56,33 +103,8 @@ if ($generatedSources.Count -eq 0) {
     throw 'The SystemJ compiler produced no Java sources.'
 }
 
-# JDK 26 may emit a ZipFileSystem AccessDenied stack trace while closing these
-# legacy lab jars even though compilation succeeded and returned exit code 0.
-# Capture that post-compile diagnostic, but surface every genuine non-zero
-# compiler result and verify that all expected generated classes exist below.
-$javacInfo = [System.Diagnostics.ProcessStartInfo]::new()
-$javacInfo.FileName = (Get-Command javac).Source
-$javacInfo.UseShellExecute = $false
-$javacInfo.CreateNoWindow = $true
-$javacInfo.RedirectStandardOutput = $true
-$javacInfo.RedirectStandardError = $true
-foreach ($argument in @('-encoding', 'UTF-8', '-cp', $classpath, '-d', $classRoot)) {
-    $javacInfo.ArgumentList.Add($argument)
-}
-foreach ($source in $generatedSources) {
-    $javacInfo.ArgumentList.Add($source)
-}
-$javacProcess = [System.Diagnostics.Process]::new()
-$javacProcess.StartInfo = $javacInfo
-$null = $javacProcess.Start()
-$javacOutput = $javacProcess.StandardOutput.ReadToEnd()
-$javacErrors = $javacProcess.StandardError.ReadToEnd()
-$javacProcess.WaitForExit()
-if ($javacProcess.ExitCode -ne 0) {
-    Write-Host $javacOutput
-    Write-Error $javacErrors
-    throw 'Generated Eric SystemJ Java compilation failed.'
-}
+$javacOutput = Invoke-FinishingProcess 'javac' (@('-encoding', 'UTF-8', '-cp', $classpath, '-d', $classRoot) + $generatedSources)
+if ($javacOutput) { Write-Host $javacOutput }
 $expectedClasses = @(
     'LidLoaderControllerCD.class', 'LidLoaderPlantCD.class',
     'CapperControllerCD.class', 'CapperPlantCD.class',
@@ -95,50 +117,18 @@ foreach ($className in $expectedClasses) {
     }
 }
 
-Push-Location $ericRoot
-try {
-    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
-    $startInfo.FileName = (Get-Command java).Source
-    $startInfo.WorkingDirectory = $ericRoot
-    $startInfo.UseShellExecute = $false
-    $startInfo.CreateNoWindow = $true
-    $startInfo.RedirectStandardOutput = $true
-    $startInfo.RedirectStandardError = $true
-    $startInfo.ArgumentList.Add('-cp')
-    $startInfo.ArgumentList.Add($classpath)
-    $startInfo.ArgumentList.Add('com.systemj.SystemJRunner')
-    $startInfo.ArgumentList.Add('config/finishing-contract.xml')
-
-    $process = [System.Diagnostics.Process]::new()
-    $process.StartInfo = $startInfo
-    $null = $process.Start()
-    $stdoutTask = $process.StandardOutput.ReadToEndAsync()
-    $stderrTask = $process.StandardError.ReadToEndAsync()
-
-    if (-not $process.WaitForExit(10000)) {
-        $process.Kill($true)
-        $process.WaitForExit()
-    }
-
-    $output = $stdoutTask.GetAwaiter().GetResult()
-    $errorOutput = $stderrTask.GetAwaiter().GetResult()
-    Write-Host $output
-    if ($errorOutput) {
-        Write-Warning $errorOutput
-    }
-    $expected = @(
-        'ERIC SYSTEMJ LID CONTRACT PASSED',
-        'ERIC SYSTEMJ CAPPER CONTRACT PASSED',
-        'ERIC SYSTEMJ LABELER CONTRACT PASSED',
-        'ERIC SYSTEMJ UNLOADER CONTRACT PASSED'
-    )
-    foreach ($marker in $expected) {
-        if (-not $output.Contains($marker)) {
-            throw "Eric SystemJ contract marker was missing: $marker"
-        }
-    }
-} finally {
-    Pop-Location
+$output = Invoke-FinishingProcess 'java' @('-Xmx256m', '-Djava.awt.headless=true',
+    '-Deric.finishing.testMode=true', '-cp', $classpath, 'com.systemj.SystemJRunner',
+    'config/finishing-contract.xml') 30000
+Write-Host $output
+$expected = @(
+    'ERIC SYSTEMJ LID CONTRACT PASSED', 'ERIC SYSTEMJ CAPPER CONTRACT PASSED',
+    'ERIC SYSTEMJ LABELER CONTRACT PASSED', 'ERIC SYSTEMJ UNLOADER CONTRACT PASSED',
+    'ERIC SYSTEMJ DYNAMIC FINISHING ACCEPTANCE PASSED'
+)
+foreach ($marker in $expected) {
+    if (-not $output.Contains($marker)) { throw "Eric SystemJ contract marker was missing: $marker" }
 }
+[System.IO.File]::WriteAllText((Join-Path $ericRoot 'build\systemj-dynamic-last.log'), $output)
 
 Write-Host 'ERIC SYSTEMJ BUILD AND CONTRACT TEST PASSED'

@@ -1,18 +1,29 @@
+// Production controller/plant declarations are in finishing_devices.sysj.
+// This file contains test harnesses only. Never connect them to the real POS.
+import nz.ac.auckland.eabs.eric.FinishingSystemJPlan;
+
 LidHarnessCD(
     output String channel jobOut;
     input String channel reportIn;
     output String channel ackOut;
+    output String channel controlOut;
+    input String channel controlReplyIn;
 )->{
-    String report = "";
-    receive reportIn;
-    send jobOut("START|SJ-J1|SJ-WP-001|LidLoaderController|PLACE_LID");
-    receive reportIn;
-    receive reportIn;
-    report = (String)#reportIn;
-    if(report.startsWith("DONE|SJ-J1|SJ-WP-001|LidLoaderController")){
-        System.out.println("ERIC SYSTEMJ LID CONTRACT PASSED");
+    FinishingSystemJPlan test = new FinishingSystemJPlan("LidLoaderController", "LID");
+    String action = ""; String value = ""; String report = "";
+    while(!test.action().equals("FINISHED")){
+        action = test.action(); value = test.value();
+        if(action.equals("JOB")){ send jobOut(value); test.sent(); }
+        else if(action.equals("ACK")){ send ackOut(value); test.sent(); }
+        else if(action.equals("REPORT")){ receive reportIn; report = (String)#reportIn; test.check(report); }
+        else if(action.equals("CONTROL")){
+            send controlOut(value); receive controlReplyIn;
+            report = (String)#controlReplyIn; test.check(report);
+        }
+        else if(action.equals("WAIT")){ waitl(100 ms); test.sent(); }
+        pause;
     }
-    send ackOut("ACK|SJ-J1|SJ-WP-001");
+    test.complete();
     while(true){ pause; }
 }
 
@@ -20,17 +31,24 @@ CapperHarnessCD(
     output String channel jobOut;
     input String channel reportIn;
     output String channel ackOut;
+    output String channel controlOut;
+    input String channel controlReplyIn;
 )->{
-    String report = "";
-    receive reportIn;
-    send jobOut("START|SJ-J2|SJ-WP-001|CapperController|CAP_BOTTLE");
-    receive reportIn;
-    receive reportIn;
-    report = (String)#reportIn;
-    if(report.startsWith("DONE|SJ-J2|SJ-WP-001|CapperController")){
-        System.out.println("ERIC SYSTEMJ CAPPER CONTRACT PASSED");
+    FinishingSystemJPlan test = new FinishingSystemJPlan("CapperController", "CAPPER");
+    String action = ""; String value = ""; String report = "";
+    while(!test.action().equals("FINISHED")){
+        action = test.action(); value = test.value();
+        if(action.equals("JOB")){ send jobOut(value); test.sent(); }
+        else if(action.equals("ACK")){ send ackOut(value); test.sent(); }
+        else if(action.equals("REPORT")){ receive reportIn; report = (String)#reportIn; test.check(report); }
+        else if(action.equals("CONTROL")){
+            send controlOut(value); receive controlReplyIn;
+            report = (String)#controlReplyIn; test.check(report);
+        }
+        else if(action.equals("WAIT")){ waitl(100 ms); test.sent(); }
+        pause;
     }
-    send ackOut("ACK|SJ-J2|SJ-WP-001");
+    test.complete();
     while(true){ pause; }
 }
 
@@ -38,17 +56,24 @@ LabelerHarnessCD(
     output String channel jobOut;
     input String channel reportIn;
     output String channel ackOut;
+    output String channel controlOut;
+    input String channel controlReplyIn;
 )->{
-    String report = "";
-    receive reportIn;
-    send jobOut("START|SJ-J3|SJ-WP-001|LabelerController|APPLY_LABEL");
-    receive reportIn;
-    receive reportIn;
-    report = (String)#reportIn;
-    if(report.startsWith("DONE|SJ-J3|SJ-WP-001|LabelerController")){
-        System.out.println("ERIC SYSTEMJ LABELER CONTRACT PASSED");
+    FinishingSystemJPlan test = new FinishingSystemJPlan("LabelerController", "LABELER");
+    String action = ""; String value = ""; String report = "";
+    while(!test.action().equals("FINISHED")){
+        action = test.action(); value = test.value();
+        if(action.equals("JOB")){ send jobOut(value); test.sent(); }
+        else if(action.equals("ACK")){ send ackOut(value); test.sent(); }
+        else if(action.equals("REPORT")){ receive reportIn; report = (String)#reportIn; test.check(report); }
+        else if(action.equals("CONTROL")){
+            send controlOut(value); receive controlReplyIn;
+            report = (String)#controlReplyIn; test.check(report);
+        }
+        else if(action.equals("WAIT")){ waitl(100 ms); test.sent(); }
+        pause;
     }
-    send ackOut("ACK|SJ-J3|SJ-WP-001");
+    test.complete();
     while(true){ pause; }
 }
 
@@ -56,216 +81,23 @@ UnloaderHarnessCD(
     output String channel jobOut;
     input String channel reportIn;
     output String channel ackOut;
+    output String channel controlOut;
+    input String channel controlReplyIn;
 )->{
-    String report = "";
-    receive reportIn;
-    send jobOut("START|SJ-J4|SJ-WP-001|UnloaderController|UNLOAD");
-    receive reportIn;
-    receive reportIn;
-    report = (String)#reportIn;
-    if(report.startsWith("DONE|SJ-J4|SJ-WP-001|UnloaderController")){
-        System.out.println("ERIC SYSTEMJ UNLOADER CONTRACT PASSED");
+    FinishingSystemJPlan test = new FinishingSystemJPlan("UnloaderController", "UNLOADER");
+    String action = ""; String value = ""; String report = "";
+    while(!test.action().equals("FINISHED")){
+        action = test.action(); value = test.value();
+        if(action.equals("JOB")){ send jobOut(value); test.sent(); }
+        else if(action.equals("ACK")){ send ackOut(value); test.sent(); }
+        else if(action.equals("REPORT")){ receive reportIn; report = (String)#reportIn; test.check(report); }
+        else if(action.equals("CONTROL")){
+            send controlOut(value); receive controlReplyIn;
+            report = (String)#controlReplyIn; test.check(report);
+        }
+        else if(action.equals("WAIT")){ waitl(100 ms); test.sent(); }
+        pause;
     }
-    send ackOut("ACK|SJ-J4|SJ-WP-001");
+    test.complete();
     while(true){ pause; }
-}
-
-LidLoaderControllerCD(
-    input String channel jobIn;
-    output String channel reportOut;
-    output String channel plantCommandOut;
-    input String channel plantEvidenceIn;
-    input String channel ackIn;
-)->{
-    String job = "";
-    String evidence = "";
-    send reportOut("READY|LidLoaderController");
-    while(true){
-        receive jobIn;
-        job = (String)#jobIn;
-        if(job.startsWith(
-                "START|SJ-J1|SJ-WP-001|LidLoaderController|PLACE_LID")){
-            send reportOut("BUSY|SJ-J1|SJ-WP-001|LidLoaderController");
-            send plantCommandOut(job);
-            receive plantEvidenceIn;
-            evidence = (String)#plantEvidenceIn;
-            if(evidence.startsWith("OK|")){
-                send reportOut(
-                    "DONE|SJ-J1|SJ-WP-001|LidLoaderController|" + evidence);
-                receive ackIn;
-                send reportOut("READY|LidLoaderController");
-            }else{
-                send reportOut(
-                    "FAULT|SJ-J1|SJ-WP-001|LidLoaderController|" + evidence);
-            }
-        }else{
-            send reportOut(
-                "FAULT|UNKNOWN|UNKNOWN|LidLoaderController|invalid-job");
-        }
-        pause;
-    }
-}
-
-CapperControllerCD(
-    input String channel jobIn;
-    output String channel reportOut;
-    output String channel plantCommandOut;
-    input String channel plantEvidenceIn;
-    input String channel ackIn;
-)->{
-    String job = "";
-    String evidence = "";
-    send reportOut("READY|CapperController");
-    while(true){
-        receive jobIn;
-        job = (String)#jobIn;
-        if(job.startsWith(
-                "START|SJ-J2|SJ-WP-001|CapperController|CAP_BOTTLE")){
-            send reportOut("BUSY|SJ-J2|SJ-WP-001|CapperController");
-            send plantCommandOut(job);
-            receive plantEvidenceIn;
-            evidence = (String)#plantEvidenceIn;
-            if(evidence.startsWith("OK|")){
-                send reportOut(
-                    "DONE|SJ-J2|SJ-WP-001|CapperController|" + evidence);
-                receive ackIn;
-                send reportOut("READY|CapperController");
-            }else{
-                send reportOut(
-                    "FAULT|SJ-J2|SJ-WP-001|CapperController|" + evidence);
-            }
-        }else{
-            send reportOut(
-                "FAULT|UNKNOWN|UNKNOWN|CapperController|invalid-job");
-        }
-        pause;
-    }
-}
-
-LabelerControllerCD(
-    input String channel jobIn;
-    output String channel reportOut;
-    output String channel plantCommandOut;
-    input String channel plantEvidenceIn;
-    input String channel ackIn;
-)->{
-    String job = "";
-    String evidence = "";
-    send reportOut("READY|LabelerController");
-    while(true){
-        receive jobIn;
-        job = (String)#jobIn;
-        if(job.startsWith(
-                "START|SJ-J3|SJ-WP-001|LabelerController|APPLY_LABEL")){
-            send reportOut("BUSY|SJ-J3|SJ-WP-001|LabelerController");
-            send plantCommandOut(job);
-            receive plantEvidenceIn;
-            evidence = (String)#plantEvidenceIn;
-            if(evidence.startsWith("OK|")){
-                send reportOut(
-                    "DONE|SJ-J3|SJ-WP-001|LabelerController|" + evidence);
-                receive ackIn;
-                send reportOut("READY|LabelerController");
-            }else{
-                send reportOut(
-                    "FAULT|SJ-J3|SJ-WP-001|LabelerController|" + evidence);
-            }
-        }else{
-            send reportOut(
-                "FAULT|UNKNOWN|UNKNOWN|LabelerController|invalid-job");
-        }
-        pause;
-    }
-}
-
-UnloaderControllerCD(
-    input String channel jobIn;
-    output String channel reportOut;
-    output String channel plantCommandOut;
-    input String channel plantEvidenceIn;
-    input String channel ackIn;
-)->{
-    String job = "";
-    String evidence = "";
-    send reportOut("READY|UnloaderController");
-    while(true){
-        receive jobIn;
-        job = (String)#jobIn;
-        if(job.startsWith(
-                "START|SJ-J4|SJ-WP-001|UnloaderController|UNLOAD")){
-            send reportOut("BUSY|SJ-J4|SJ-WP-001|UnloaderController");
-            send plantCommandOut(job);
-            receive plantEvidenceIn;
-            evidence = (String)#plantEvidenceIn;
-            if(evidence.startsWith("OK|")){
-                send reportOut(
-                    "DONE|SJ-J4|SJ-WP-001|UnloaderController|" + evidence);
-                receive ackIn;
-                send reportOut("READY|UnloaderController");
-            }else{
-                send reportOut(
-                    "FAULT|SJ-J4|SJ-WP-001|UnloaderController|" + evidence);
-            }
-        }else{
-            send reportOut(
-                "FAULT|UNKNOWN|UNKNOWN|UnloaderController|invalid-job");
-        }
-        pause;
-    }
-}
-
-LidLoaderPlantCD(
-    input String channel commandIn;
-    output String channel evidenceOut;
-)->{
-    String command = "";
-    while(true){
-        receive commandIn;
-        command = (String)#commandIn;
-        pause;
-        send evidenceOut(
-            "OK|lidPresent=true|placementComplete=true|armHome=true");
-    }
-}
-
-CapperPlantCD(
-    input String channel commandIn;
-    output String channel evidenceOut;
-)->{
-    String command = "";
-    while(true){
-        receive commandIn;
-        command = (String)#commandIn;
-        pause;
-        send evidenceOut(
-            "OK|capSecured=true|clampHome=true|gripperHome=true");
-    }
-}
-
-LabelerPlantCD(
-    input String channel commandIn;
-    output String channel evidenceOut;
-)->{
-    String command = "";
-    while(true){
-        receive commandIn;
-        command = (String)#commandIn;
-        pause;
-        send evidenceOut(
-            "OK|bottleStopped=true|labelApplied=true|bottleReleased=true");
-    }
-}
-
-UnloaderPlantCD(
-    input String channel commandIn;
-    output String channel evidenceOut;
-)->{
-    String command = "";
-    while(true){
-        receive commandIn;
-        command = (String)#commandIn;
-        pause;
-        send evidenceOut(
-            "OK|bottleCollected=true|outputPathClear=true");
-    }
 }
