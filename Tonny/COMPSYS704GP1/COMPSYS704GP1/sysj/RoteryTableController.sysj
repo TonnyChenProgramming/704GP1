@@ -1,0 +1,107 @@
+RotaryTableController(
+
+    input String channel commandIn;
+    output String channel reportOut;
+
+    // controller --> plant
+    output Boolean channel rotate;
+
+    // plant --> controller
+    input Boolean channel aligned;
+    input String channel occupancy;
+
+)->{
+
+    while(true){
+
+        send reportOut("READY");
+
+
+        receive commandIn;
+
+        String command = (String)#commandIn;
+
+
+        if(command.startsWith("START|")){
+
+            String workpieceId = command.substring(6);
+
+            System.out.println(
+                "START received for " + workpieceId
+            );
+
+
+            send reportOut(
+                "BUSY|" + workpieceId
+            );
+
+            // Request one 60-degree rotation
+
+            send rotate(true);
+
+            // Wait until table is physically aligned
+
+            receive aligned;
+
+            if((Boolean)#aligned){
+
+                System.out.println(
+                    "Table aligned"
+                );
+
+                // Read confirmed physical occupancy
+
+                receive occupancy;
+
+                String currentOccupancy = (String)#occupancy;
+
+                System.out.println(
+                    "Current occupancy: " + currentOccupancy
+                );
+
+
+                send reportOut(
+                    "DONE|" + workpieceId
+                );
+
+            }
+
+            else{
+
+                send reportOut(
+                    "FAULT|" + workpieceId + "|TABLE_NOT_ALIGNED"
+                );
+
+            }
+
+        }
+
+        else if(command.equals("RESET")){
+
+            System.out.println(
+                "RESET received"
+            );
+
+        }
+
+        else if(command.equals("STOP")){
+
+            System.out.println(
+                "STOP received"
+            );
+
+        }
+
+        else{
+
+            System.out.println(
+                "Unknown command: " + command
+            );
+
+        }
+
+        pause;
+
+    }
+
+}

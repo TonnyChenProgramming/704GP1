@@ -1,0 +1,140 @@
+TwoLiquidFillerController(
+
+    input String channel commandIn;
+    output String channel reportOut;
+
+    // controller --> plant
+
+    output Integer channel dose1;
+    output Integer channel dose2;
+
+    // plant --> controller
+
+    input Boolean channel bottlePresent;
+    input Boolean channel dose1Done;
+    input Boolean channel dose2Done;
+    input Boolean channel overflow;
+
+)->{
+
+    while(true){
+
+        send reportOut("READY");
+
+        receive commandIn;
+
+        String command = (String)#commandIn;
+
+
+        if(command.startsWith("START|")){
+
+            String data = command.substring(6);
+
+            int firstSeparator = data.indexOf("|");
+
+            int secondSeparator =
+                data.indexOf("|", firstSeparator + 1);
+
+            String workpieceId =
+                data.substring(0, firstSeparator);
+
+            int target1 =
+                Integer.parseInt(
+                    data.substring(
+                        firstSeparator + 1,
+                        secondSeparator
+                    )
+                );
+
+            int target2 =
+                Integer.parseInt(
+                    data.substring(
+                        secondSeparator + 1
+                    )
+                );
+
+
+            System.out.println(
+                "START received for " + workpieceId
+            );
+
+
+            receive bottlePresent;
+
+
+            if((Boolean)#bottlePresent){
+
+                send reportOut(
+                    "BUSY|" + workpieceId
+                );
+
+
+                send dose1(target1);
+
+                receive dose1Done;
+
+
+                send dose2(target2);
+
+                receive dose2Done;
+
+
+                receive overflow;
+
+
+                if((Boolean)#overflow){
+
+                    send reportOut(
+                        "FAULT|" +
+                        workpieceId +
+                        "|OVERFLOW"
+                    );
+
+                }
+
+                else{
+
+                    send reportOut(
+                        "DONE|" + workpieceId
+                    );
+
+                }
+
+            }
+
+            else{
+
+                send reportOut(
+                    "FAULT|" +
+                    workpieceId +
+                    "|NO_BOTTLE_PRESENT"
+                );
+
+            }
+
+        }
+
+
+        else if(command.equals("RESET")){
+
+            System.out.println(
+                "RESET received"
+            );
+
+        }
+
+
+        else if(command.equals("STOP")){
+
+            System.out.println(
+                "STOP received"
+            );
+
+        }
+
+
+        pause;
+
+    }
+
+}

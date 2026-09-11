@@ -1,0 +1,118 @@
+BottleLoaderController(
+
+    input String channel commandIn;
+    output String channel reportOut;
+
+    output Boolean channel load;
+    output Boolean channel retract;
+
+    input Boolean channel bottleAvailable;
+    input Boolean channel placed;
+    input Boolean channel armHome;
+
+)->{
+
+    while(true){
+
+        send reportOut("READY");
+
+        receive commandIn;
+
+        String command = (String)#commandIn;
+
+
+
+        if(command.startsWith("START|")){
+
+            String workpieceId = command.substring(6);
+
+            System.out.println(
+                "START received for " + workpieceId
+            );
+
+
+            // Check bottle availability
+            receive bottleAvailable;
+
+
+            if((Boolean)#bottleAvailable){
+
+                // Bottle exists -> start processing
+                send reportOut(
+                    "BUSY|" + workpieceId
+                );
+
+
+                send load(true);
+
+                receive placed;
+
+
+                if((Boolean)#placed){
+
+
+                    send retract(true);
+
+                    receive armHome;
+
+
+                    if((Boolean)#armHome){
+
+                        send reportOut(
+                            "DONE|" + workpieceId
+                        );
+
+                    }
+                    else{
+
+                        send reportOut(
+                            "FAULT|" + workpieceId + "|ARM_NOT_HOME"
+                        );
+                    }
+
+                }
+                else{
+
+
+                    send reportOut(
+                        "FAULT|" + workpieceId + "|BOTTLE_NOT_PLACED"
+                    );
+                }
+
+            }
+            else{
+
+
+                send reportOut(
+                    "FAULT|" + workpieceId + "|NO_BOTTLE_AVAILABLE"
+                );
+            }
+        }
+
+        else if(command.equals("RESET")){
+
+            System.out.println(
+                "RESET received"
+            );
+
+        }
+
+        else if(command.equals("STOP")){
+
+            System.out.println(
+                "STOP received"
+            );
+
+        }
+
+        else{
+
+            System.out.println(
+                "Unknown command: " + command
+            );
+
+        }
+
+        pause;
+    }
+}

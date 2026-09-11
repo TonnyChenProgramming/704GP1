@@ -1,0 +1,17 @@
+<System xmlns="http://systemjtechnology.com">
+    <SubSystem Name="ConveyorSubsystem" Local="true">
+        <ClockDomain Name="ConveyorControllerCD" Class="ConveyorController">
+            <oChannel Name="motorRun" To="ConveyorPlantCD.motorRun"/>
+            <iChannel Name="photoEye" From="ConveyorPlantCD.photoEye"/>
+            <iChannel Name="bottleLeft" From="ConveyorPlantCD.bottleLeft"/>
+        </ClockDomain>
+
+        <ClockDomain Name="ConveyorPlantCD" Class="ConveyorPlant">
+            <iChannel Name="motorRun" From="ConveyorControllerCD.motorRun"/>
+            <oChannel Name="photoEye" To="ConveyorControllerCD.photoEye"/>
+            <oChannel Name="bottleLeft" To="ConveyorControllerCD.bottleLeft"/>
+        </ClockDomain>
+
+    </SubSystem>
+
+</System>

@@ -1,0 +1,121 @@
+ConveyorController(
+
+    input String channel commandIn;
+    output String channel reportOut;
+
+    output Boolean channel motorRun;
+    
+    input Boolean channel photoEye;
+    input Boolean channel bottleLeft;
+
+)->{
+
+    while(true){
+
+        send reportOut("READY");
+
+
+        receive commandIn;
+
+        String command = (String)#commandIn;
+
+
+        if(command.startsWith("START|")){
+
+            String workpieceId = command.substring(6);
+
+            System.out.println(
+                "START received for " + workpieceId
+            );
+
+
+            send reportOut(
+                "BUSY|" + workpieceId
+            );
+
+
+            // Start conveyor
+            send motorRun(true);
+
+
+            // Wait until bottle reaches photo eye
+            receive photoEye;
+
+
+            if((Boolean)#photoEye){
+
+                System.out.println(
+                    "Bottle detected by photo eye"
+                );
+
+
+                // Wait until bottle leaves conveyor section
+                receive bottleLeft;
+
+
+                if((Boolean)#bottleLeft){
+
+                    // Stop conveyor
+                    send motorRun(false);
+
+                    send reportOut(
+                        "DONE|" + workpieceId
+                    );
+
+                }
+
+                else{
+
+                    send motorRun(false);
+
+                    send reportOut(
+                        "FAULT|" + workpieceId + "|BOTTLE_NOT_LEFT"
+                    );
+
+                }
+
+            }
+
+            else{
+
+                send motorRun(false);
+
+                send reportOut(
+                    "FAULT|" + workpieceId + "|PHOTO_EYE_NOT_TRIGGERED"
+                );
+
+            }
+
+        }
+
+        else if(command.equals("RESET")){
+
+            System.out.println(
+                "RESET received"
+            );
+
+        }
+
+        else if(command.equals("STOP")){
+
+            System.out.println(
+                "STOP received"
+            );
+
+            send motorRun(false);
+
+        }
+
+        else{
+
+            System.out.println(
+                "Unknown command: " + command
+            );
+
+        }
+
+        pause;
+
+    }
+
+}

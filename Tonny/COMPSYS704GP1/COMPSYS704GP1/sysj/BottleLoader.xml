@@ -1,0 +1,26 @@
+<System xmlns="http://systemjtechnology.com">
+	<SubSystem Name="BottleLoaderSubsystem" Local="true">
+		<ClockDomain Name="BottleLoaderControllerCD" Class="BottleLoaderController">
+            
+            <oChannel Name="load" To="BottleLoaderPlantCD.load"/>
+            <oChannel Name="retract" To="BottleLoaderPlantCD.retract"/>
+            
+            <iChannel Name="bottleAvailable" From="BottleLoaderPlantCD.bottleAvailable"/>
+            <iChannel Name="placed" From="BottleLoaderPlantCD.placed"/>
+            <iChannel Name="armHome" From="BottleLoaderPlantCD.armHome"/>
+
+		</ClockDomain>
+		
+		<ClockDomain Name="BottleLoaderPlantCD" Class="BottleLoaderPlant">
+		
+            <iChannel Name="load" From="BottleLoaderControllerCD.load"/>
+            <iChannel Name="retract" From="BottleLoaderControllerCD.retract"/>
+
+            <oChannel Name="bottleAvailable" To="BottleLoaderControllerCD.bottleAvailable"/>
+            <oChannel Name="placed" To="BottleLoaderControllerCD.placed"/>
+            <oChannel Name="armHome" To="BottleLoaderControllerCD.armHome"/>
+            
+		</ClockDomain>
+		
+	</SubSystem>
+</System>
