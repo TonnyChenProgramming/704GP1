@@ -1,0 +1,72 @@
+RotaryTableController(
+
+    // coordinator --> controller
+
+    input signal rotateTrigger;
+
+    // controller --> coordinator
+
+    output signal tableAligned;
+
+    // controller --> plant
+
+    output Boolean channel rotate;
+
+    // plant --> controller
+
+    input Boolean channel aligned;
+    input String channel occupancy;
+
+)->{
+
+    while(true){
+
+        await(rotateTrigger);
+
+
+        System.out.println(
+            "ROTATE trigger received"
+        );
+
+
+        // Request one 60-degree rotation
+
+        send rotate(true);
+
+
+        // Wait until table is physically aligned
+
+        receive aligned;
+
+
+        if((Boolean)#aligned){
+
+            System.out.println(
+                "Table aligned"
+            );
+
+
+            receive occupancy;
+
+            String currentOccupancy =
+                (String)#occupancy;
+
+
+            System.out.println(
+                "Current occupancy: " +
+                currentOccupancy
+            );
+
+
+            // Confirm completion to Coordinator
+
+            emit tableAligned;
+
+        }
+
+
+        pause;
+
+    }
+
+}

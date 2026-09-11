@@ -1,0 +1,535 @@
+/*
+ * coordinator.sysj -- Production Coordinator (Coordinator_Spec.md; GP report
+ * Figure 1/2, Table 4).
+ *
+ * This project (CoordinatorSystemJ/) is a stripped-down, compiler-ready
+ * companion to the main ip-persistence/704GP1/Zhiyuan/ module: it carries
+ * only this .sysj file, its XML wiring, and the 3 plain-Java classes it
+ * actually imports (TrackerPort/TwinView/StubTracker). The full Java-side
+ * implementation this file was translated from --
+ * nz.ac.auckland.eabs.zhiyuan.coordinator.Coordinator, whose 5 acceptance
+ * scenarios pass against stub controllers, see
+ * 704GP1/Zhiyuan/src/test/.../CoordinatorAcceptanceTest.java -- lives in
+ * that other project, not here; the control logic below mirrors it exactly.
+ *
+ * STATUS: this file has never been run through the SystemJ compiler (sjc)
+ * -- no SystemJ toolchain was available on the machine it was written on.
+ * That's what this project is for: compile it here (BuildAll.launch, then
+ * RunCoordinator.launch) and fix whatever syntax issues surface. Syntax
+ * here is grounded in real, already-compiled course/group examples --
+ * COMPSYS704_Lab_2/sysj/Exercise6.sysj (channel send/receive, the `{A}||{B}`
+ * synchronous-join pattern used below to wait for several stations at once),
+ * COMPSYS704_Lab_3/sysj/controller.sysj (the abort/trap main-sequence
+ * pattern, sustain, boolean signal expressions like `!enable`), and Eric's
+ * own 704GP1/Eric/systemj/finishing_contract.sysj (the pipe-delimited
+ * String channel protocol reused below so this interoperates with his four
+ * already-delivered finishing controllers without a re-encoding) -- but
+ * none of that guarantees it compiles as-is.
+ *
+ * Per Coordinator_SystemI_Spec.md Section 7's "definition of done", every
+ * station Controller wired here is a stub -- simple canned
+ * READY/BUSY/DONE/FAULT responders -- not Tonny's real Loader/Filler (not
+ * yet delivered) and not Eric's real Lid/Capper/Labeller/Unloader
+ * (delivered, but not wired in yet). Wiring real controllers in is the next
+ * phase.
+ *
+ * BatchManager (com.g7.ip.BatchManager) stays plain, synchronous Java per
+ * the IP report's Stage-1 plan. ActivateBatch/BatchDrained are modelled
+ * here as a channel pair (SystemJ_Reference.md's own classification for
+ * command/ack pairs) -- BatchManagerHarnessCD below stands in for a real
+ * bridge CD that would translate these channel events into direct calls
+ * into the existing BatchManager.start()/onBatchDrained()/
+ * CoordinatorLink.activateBatch() Java methods; that bridge is not written
+ * here (a follow-up, not Coordinator's own concern).
+ *
+ * The Tracker is called as a plain Java object held by the Coordinator CD,
+ * exactly as GP report Figure 3 pairs a Controller CD with its Model, and
+ * as Lab 3's plant.sysj instantiates its GUI directly (`new Thread(new
+ * GUI()).start();`) rather than over a channel -- matching
+ * Coordinator_Spec.md Section 4 ("Coordinator calls these [Tracker
+ * methods]"). It is boundary-compliant per TrackerPort.java's Javadoc --
+ * see that file and Tracker_Change_Request_for_Eric.md for the assumption
+ * this makes about Eric's pending WorkpieceTracker update. StubTracker is
+ * used as the placeholder implementation here, exactly as Eric's own
+ * Harness/Plant CDs are placeholders standing in for the shared Coordinator
+ * during his isolated testing -- swap it for a real Eric-backed adapter
+ * once he updates WorkpieceTracker.
+ */
+
+import nz.ac.auckland.eabs.zhiyuan.coordinator.TrackerPort;
+import nz.ac.auckland.eabs.zhiyuan.coordinator.StubTracker;
+import java.util.Arrays;
+
+CoordinatorCD(
+    input  String channel activateBatchIn;   // "ACTIVATE|batchId|recipeId|productId|totalQuantity"
+    output String channel batchDrainedOut;   // "DRAINED|batchId"
+
+    output String channel loaderJobOut;    input String channel loaderReportIn;    output String channel loaderAckOut;
+    output String channel fillerJobOut;    input String channel fillerReportIn;    output String channel fillerAckOut;
+    output String channel lidJobOut;       input String channel lidReportIn;       output String channel lidAckOut;
+    output String channel capperJobOut;    input String channel capperReportIn;    output String channel capperAckOut;
+    output String channel labellerJobOut;  input String channel labellerReportIn;  output String channel labellerAckOut;
+    output String channel unloaderJobOut;  input String channel unloaderReportIn;  output String channel unloaderAckOut;
+
+    // Rotary Table Controller: continuous-drive signal pair, matching brief
+    // Appendix 4's own idiom for this exact device ("rotaryTableTrigger ...
+    // turns the rotary table while [it is] true").
+    output signal rotateTrigger;
+    input  signal tableAligned;
+
+    // Safety Monitor CD -- broadcast signal, not a channel (SystemJ_Reference.md).
+    input signal safetyPermitLost;
+)->{
+    // ---- shared CD state (index 0 unused; 1..5 usable, position 6 reserved/unused per brief Appendix 4) ----
+    String[] rotaryOccupant = new String[6];
+    String labellerOccupant = null;
+    String unloaderOccupant = null;
+    String batchId = null, recipeId = null, productId = null;
+    int totalQuantity = 0, admitted = 0, completed = 0, nextSeq = 0;
+    String[] requiredOperations = {"FILLER", "LID", "CAPPER", "LABELLER", "UNLOADER"};
+
+    // Placeholder Tracker -- see file header note.
+    TrackerPort tracker = new StubTracker();
+
+    // Internal local signals (Coordinator_SystemI_Spec.md Section 3.2: reactions
+    // communicate via internal local signals, not channels -- channels are for
+    // inter-CD boundaries only).
+    signal batchActive, batchDrainedLocal;
+
+    {
+        // -------- Reaction 1: WAIT_ORDER (order/batch activation) --------
+        while(true){
+            receive activateBatchIn;
+            String msg = (String)#activateBatchIn;
+            String[] parts = msg.split("\\|");
+            batchId = parts[1]; recipeId = parts[2]; productId = parts[3];
+            totalQuantity = Integer.parseInt(parts[4]);
+            admitted = 0; completed = 0; nextSeq = 0;
+            for (int p = 1; p <= 5; p++){ rotaryOccupant[p] = null; }
+            labellerOccupant = null; unloaderOccupant = null;
+            emit batchActive;
+            await(batchDrainedLocal);
+        }
+    }
+    ||
+    {
+        // -------- Reaction 2: PREPARE_BATCH .. UPDATE_CONFIRMED_POSITIONS,
+        // preempted by a safety hazard (Coordinator_Spec.md Section 6). --------
+        while(true){
+            await(batchActive);
+            weak abort(safetyPermitLost){
+                while(admitted < totalQuantity || rotaryOccupant[1] != null || rotaryOccupant[2] != null
+                        || rotaryOccupant[3] != null || rotaryOccupant[4] != null || rotaryOccupant[5] != null
+                        || labellerOccupant != null || unloaderOccupant != null){
+
+                    // ---- PREPARE_BATCH ----
+                    // The loader always places a bottle at rotary position 1 specifically --
+                    // admitting a new one while P1 is occupied would overwrite whatever bottle
+                    // is sitting there (this exact bug was found and fixed in Coordinator.java's
+                    // Java version -- see that class's tickPrepareBatch() comment).
+                    if (admitted < totalQuantity && rotaryOccupant[1] == null){
+                        nextSeq++;
+                        String wp = "WP-" + batchId + "-" + nextSeq;
+                        String jobId = "J-" + wp + "-LOAD";
+                        send loaderJobOut("START|" + jobId + "|" + wp + "|LOADER|LOAD_BOTTLE");
+                        receive loaderReportIn; // BUSY
+                        receive loaderReportIn; // DONE or FAULT
+                        String rep = (String)#loaderReportIn;
+                        if (rep.startsWith("DONE")){
+                            tracker.createTwin(wp, batchId, Arrays.asList(requiredOperations));
+                            rotaryOccupant[1] = wp;
+                            tracker.confirmLocation(wp, "ROTARY_P1");
+                            send loaderAckOut("ACK|" + jobId + "|" + wp);
+                            admitted++;
+                        } else {
+                            tracker.setStatus(wp, "FAULT");
+                        }
+                    }
+
+                    // ---- DISPATCH_OPERATIONS + WAIT_REQUIRED_COMPLETIONS ----
+                    // Each branch is a no-op if its position/slot is empty. The `{...}||{...}`
+                    // join below only continues past this block once EVERY branch has finished
+                    // (including the ones that did nothing) -- this is the same
+                    // "synchronously await several things at once" pattern used in
+                    // COMPSYS704_Lab_2/sysj/Exercise6.sysj's Pabro reaction
+                    // (`{await (A);} || {await (B);}`), so it correctly reproduces
+                    // Coordinator.java's "wait for every dispatched station to report DONE
+                    // before indexing" rule without polling.
+                    boolean fillerFaulted = false, lidFaulted = false, capperFaulted = false,
+                            labellerFaulted = false, unloaderFaulted = false;
+                    {
+                        if (rotaryOccupant[2] != null){
+                            String wp = rotaryOccupant[2];
+                            String jobId = "J-" + wp + "-FILLER";
+                            send fillerJobOut("START|" + jobId + "|" + wp + "|FILLER|FILL_TWO_LIQUIDS");
+                            receive fillerReportIn;
+                            receive fillerReportIn;
+                            String rep = (String)#fillerReportIn;
+                            if (rep.startsWith("DONE")){
+                                tracker.confirmOperation(wp, "FILLER", null);
+                                send fillerAckOut("ACK|" + jobId + "|" + wp);
+                            } else {
+                                tracker.setStatus(wp, "FAULT");
+                                fillerFaulted = true;
+                            }
+                        }
+                    }
+                    ||
+                    {
+                        if (rotaryOccupant[3] != null){
+                            String wp = rotaryOccupant[3];
+                            String jobId = "J-" + wp + "-LID";
+                            send lidJobOut("START|" + jobId + "|" + wp + "|LID|PLACE_LID");
+                            receive lidReportIn;
+                            receive lidReportIn;
+                            String rep = (String)#lidReportIn;
+                            if (rep.startsWith("DONE")){
+                                tracker.confirmOperation(wp, "LID", null);
+                                send lidAckOut("ACK|" + jobId + "|" + wp);
+                            } else {
+                                tracker.setStatus(wp, "FAULT");
+                                lidFaulted = true;
+                            }
+                        }
+                    }
+                    ||
+                    {
+                        if (rotaryOccupant[4] != null){
+                            String wp = rotaryOccupant[4];
+                            String jobId = "J-" + wp + "-CAPPER";
+                            send capperJobOut("START|" + jobId + "|" + wp + "|CAPPER|CAP_BOTTLE");
+                            receive capperReportIn;
+                            receive capperReportIn;
+                            String rep = (String)#capperReportIn;
+                            if (rep.startsWith("DONE")){
+                                tracker.confirmOperation(wp, "CAPPER", null);
+                                send capperAckOut("ACK|" + jobId + "|" + wp);
+                            } else {
+                                tracker.setStatus(wp, "FAULT");
+                                capperFaulted = true;
+                            }
+                        }
+                    }
+                    ||
+                    {
+                        if (labellerOccupant != null){
+                            String wp = labellerOccupant;
+                            String jobId = "J-" + wp + "-LABELLER";
+                            send labellerJobOut("START|" + jobId + "|" + wp + "|LABELLER|APPLY_LABEL");
+                            receive labellerReportIn;
+                            receive labellerReportIn;
+                            String rep = (String)#labellerReportIn;
+                            if (rep.startsWith("DONE")){
+                                tracker.confirmOperation(wp, "LABELLER", null);
+                                send labellerAckOut("ACK|" + jobId + "|" + wp);
+                            } else {
+                                tracker.setStatus(wp, "FAULT");
+                                labellerFaulted = true;
+                            }
+                        }
+                    }
+                    ||
+                    {
+                        if (unloaderOccupant != null){
+                            String wp = unloaderOccupant;
+                            String jobId = "J-" + wp + "-UNLOADER";
+                            send unloaderJobOut("START|" + jobId + "|" + wp + "|UNLOADER|UNLOAD");
+                            receive unloaderReportIn;
+                            receive unloaderReportIn;
+                            String rep = (String)#unloaderReportIn;
+                            if (rep.startsWith("DONE")){
+                                tracker.confirmOperation(wp, "UNLOADER", null);
+                                send unloaderAckOut("ACK|" + jobId + "|" + wp);
+                            } else {
+                                tracker.setStatus(wp, "FAULT");
+                                unloaderFaulted = true;
+                            }
+                        }
+                    }
+
+                    boolean anyFaulted = fillerFaulted || lidFaulted || capperFaulted
+                            || labellerFaulted || unloaderFaulted;
+
+                    if (!anyFaulted){
+                        // ---- INDEX_TABLE ----
+                        // Output-position guard (brief Appendix 4 / Coordinator_Spec.md Section
+                        // 2: "must NOT move ... while the output position is blocked"). Since
+                        // every occupied station above is now resolved (guaranteed by
+                        // !anyFaulted), this only ever fires if P5 holds a bottle that was never
+                        // dispatched at all this cycle -- see Coordinator.java's tickIndexTable()
+                        // for the equivalent, already-debugged guard (an earlier raw-occupancy
+                        // version of this check deadlocked permanently; checking against this
+                        // cycle's resolution status, as here, is what fixed it).
+                        if (!(rotaryOccupant[5] != null && labellerOccupant != null)){
+                            emit rotateTrigger;
+                            await(tableAligned);
+
+                            // ---- UPDATE_CONFIRMED_POSITIONS ----
+                            // Downstream completions free slots first, so a same-cycle handoff
+                            // from the table can use them (same ordering as Coordinator.java).
+                            if (unloaderOccupant != null){
+                                tracker.confirmLocation(unloaderOccupant, "OUTPUT_COLLECTION");
+                                completed++;
+                                unloaderOccupant = null;
+                            }
+                            if (labellerOccupant != null && unloaderOccupant == null){
+                                unloaderOccupant = labellerOccupant;
+                                tracker.confirmLocation(unloaderOccupant, "UNLOADER");
+                                labellerOccupant = null;
+                            }
+                            if (rotaryOccupant[5] != null && labellerOccupant == null){
+                                labellerOccupant = rotaryOccupant[5];
+                                tracker.confirmLocation(labellerOccupant, "LABELLER");
+                                rotaryOccupant[5] = null;
+                            }
+                            for (int p = 4; p >= 1; p--){
+                                if (rotaryOccupant[p] != null && rotaryOccupant[p + 1] == null){
+                                    rotaryOccupant[p + 1] = rotaryOccupant[p];
+                                    rotaryOccupant[p] = null;
+                                    tracker.confirmLocation(rotaryOccupant[p + 1], "ROTARY_P" + (p + 1));
+                                }
+                            }
+                        }
+                    }
+                    pause;
+                }
+            }
+            // Control resumes here immediately once safetyPermitLost preempted the body above
+            // (weak abort: the branch mid-actuation at that instant finishes its current
+            // send/receive pair first, matching "Controllers finish only the actuator action
+            // required to reach their safe condition"). Reaction 3 below owns SAFE_HOLD
+            // bookkeeping; this reaction simply re-loops to await(batchActive) once the batch
+            // (still active, now short some discarded/rolled-back bottles) needs to resume.
+            if (admitted == totalQuantity && completed == totalQuantity){
+                send batchDrainedOut("DRAINED|" + batchId);
+                emit batchDrainedLocal;
+            }
+        }
+    }
+    ||
+    {
+        // -------- Reaction 3: safety coordination (Coordinator_Spec.md Section 6) --------
+        while(true){
+            await(safetyPermitLost);
+            // Discard every in-flight bottle and roll back `admitted` so PREPARE_BATCH admits
+            // fresh replacements once recovered -- mirrors Coordinator.java's enterSafeHold()
+            // (see that method's comment for why the rollback is required: otherwise the batch
+            // could never reach total_quantity again once bottles are discarded).
+            int discarded = 0;
+            for (int p = 1; p <= 5; p++){
+                if (rotaryOccupant[p] != null){
+                    tracker.setStatus(rotaryOccupant[p], "ABORTED");
+                    rotaryOccupant[p] = null;
+                    discarded++;
+                }
+            }
+            if (labellerOccupant != null){
+                tracker.setStatus(labellerOccupant, "ABORTED");
+                labellerOccupant = null;
+                discarded++;
+            }
+            if (unloaderOccupant != null){
+                tracker.setStatus(unloaderOccupant, "ABORTED");
+                unloaderOccupant = null;
+                discarded++;
+            }
+            admitted = admitted - discarded;
+
+            await(!safetyPermitLost);
+            // TODO(open item): Coordinator_Spec.md Section 6 also requires an explicit operator
+            // acknowledgement before resuming ("hazard cleared + operator acknowledgement +
+            // safetyPermit restored"), matching Coordinator.java's acknowledgeSafetyClear()/
+            // operatorAcknowledged flag. This draft only reconstructs !safetyPermitLost -- add a
+            // second input signal (name TBD with the group) and
+            // `await(!safetyPermitLost); await(operatorAcknowledge);` once agreed.
+        }
+    }
+}
+
+/*
+ * ---------------------------------------------------------------------
+ * Stub station Controller CDs -- canned READY/BUSY/DONE/FAULT responders,
+ * one bottle at a time, matching Eric's LidLoaderControllerCD pattern
+ * (704GP1/Eric/systemj/finishing_contract.sysj) exactly, generalised to all
+ * six stations. Per Coordinator_SystemI_Spec.md Section 7 these stand in
+ * for both Tonny's not-yet-delivered Loader/Filler and Eric's delivered-
+ * but-not-yet-wired Lid/Capper/Labeller/Unloader.
+ * ---------------------------------------------------------------------
+ */
+
+LoaderControllerCD(
+    input  String channel jobIn;
+    output String channel reportOut;
+    input  String channel ackIn;
+)->{
+    // Job format sent by CoordinatorCD: "START|jobId|workpieceId|STATION|OPERATION"
+    // (Eric's docs/INTEGRATION.md protocol) -- parsed inline rather than via a
+    // separate helper function/method, since no verified course example shows
+    // auxiliary method declarations inside a CD body.
+    String job = "";
+    send reportOut("READY|LOADER");
+    while(true){
+        receive jobIn;
+        job = (String)#jobIn;
+        String[] parts = job.split("\\|");
+        String jobId = parts[1];
+        String wp = parts[2];
+        send reportOut("BUSY|" + jobId + "|" + wp + "|LOADER");
+        pause;
+        send reportOut("DONE|" + jobId + "|" + wp + "|LOADER|OK|bottlePlaced=true");
+        receive ackIn;
+        send reportOut("READY|LOADER");
+    }
+}
+
+FillerControllerCD(
+    input  String channel jobIn;
+    output String channel reportOut;
+    input  String channel ackIn;
+)->{
+    String job = "";
+    send reportOut("READY|FILLER");
+    while(true){
+        receive jobIn;
+        job = (String)#jobIn;
+        String[] parts = job.split("\\|");
+        String jobId = parts[1];
+        String wp = parts[2];
+        send reportOut("BUSY|" + jobId + "|" + wp + "|FILLER");
+        pause;
+        send reportOut("DONE|" + jobId + "|" + wp + "|FILLER|OK|liquidA=0.5|liquidB=0.5");
+        receive ackIn;
+        send reportOut("READY|FILLER");
+    }
+}
+
+LidControllerCD(
+    input  String channel jobIn;
+    output String channel reportOut;
+    input  String channel ackIn;
+)->{
+    String job = "";
+    send reportOut("READY|LID");
+    while(true){
+        receive jobIn;
+        job = (String)#jobIn;
+        String[] parts = job.split("\\|");
+        String jobId = parts[1];
+        String wp = parts[2];
+        send reportOut("BUSY|" + jobId + "|" + wp + "|LID");
+        pause;
+        send reportOut("DONE|" + jobId + "|" + wp + "|LID|OK|lidPresent=true");
+        receive ackIn;
+        send reportOut("READY|LID");
+    }
+}
+
+CapperControllerCD(
+    input  String channel jobIn;
+    output String channel reportOut;
+    input  String channel ackIn;
+)->{
+    String job = "";
+    send reportOut("READY|CAPPER");
+    while(true){
+        receive jobIn;
+        job = (String)#jobIn;
+        String[] parts = job.split("\\|");
+        String jobId = parts[1];
+        String wp = parts[2];
+        send reportOut("BUSY|" + jobId + "|" + wp + "|CAPPER");
+        pause;
+        send reportOut("DONE|" + jobId + "|" + wp + "|CAPPER|OK|capSecured=true");
+        receive ackIn;
+        send reportOut("READY|CAPPER");
+    }
+}
+
+LabellerControllerCD(
+    input  String channel jobIn;
+    output String channel reportOut;
+    input  String channel ackIn;
+)->{
+    String job = "";
+    send reportOut("READY|LABELLER");
+    while(true){
+        receive jobIn;
+        job = (String)#jobIn;
+        String[] parts = job.split("\\|");
+        String jobId = parts[1];
+        String wp = parts[2];
+        send reportOut("BUSY|" + jobId + "|" + wp + "|LABELLER");
+        pause;
+        send reportOut("DONE|" + jobId + "|" + wp + "|LABELLER|OK|labelApplied=true");
+        receive ackIn;
+        send reportOut("READY|LABELLER");
+    }
+}
+
+UnloaderControllerCD(
+    input  String channel jobIn;
+    output String channel reportOut;
+    input  String channel ackIn;
+)->{
+    String job = "";
+    send reportOut("READY|UNLOADER");
+    while(true){
+        receive jobIn;
+        job = (String)#jobIn;
+        String[] parts = job.split("\\|");
+        String jobId = parts[1];
+        String wp = parts[2];
+        send reportOut("BUSY|" + jobId + "|" + wp + "|UNLOADER");
+        pause;
+        send reportOut("DONE|" + jobId + "|" + wp + "|UNLOADER|OK|bottleCollected=true");
+        receive ackIn;
+        send reportOut("READY|UNLOADER");
+    }
+}
+
+/*
+ * Rotary Table Controller stub (Tonny's part, not yet delivered). Takes
+ * exactly one tick to align, matching brief Appendix 4's rotary
+ * clock-domain idiom (rotaryTableTrigger / tableAlignedWithSensor).
+ */
+RotaryTableControllerCD(
+    input  signal rotateTrigger;
+    output signal tableAligned;
+)->{
+    while(true){
+        await(rotateTrigger);
+        pause;
+        emit tableAligned;
+    }
+}
+
+/*
+ * Safety Monitor stub -- permit granted (no hazard) throughout, since no
+ * acceptance scenario here exercises a real hazard source. Coordinator.java's
+ * own StubSafetyMonitor test double is the equivalent for the Java-side
+ * acceptance tests, where scenario 4 (safety interruption) does trip it.
+ */
+SafetyMonitorCD(
+    output signal safetyPermitLost;
+)->{
+    while(true){ pause; }
+}
+
+/*
+ * BatchManagerHarnessCD -- stands in for the real BatchManager bridge CD
+ * (not written here; see file header). Activates one 2-bottle batch and
+ * waits for it to drain, mirroring Eric's *HarnessCD pattern
+ * (finishing_contract.sysj) of a single hard-coded smoke-test sequence.
+ */
+BatchManagerHarnessCD(
+    output String channel activateBatchOut;
+    input  String channel batchDrainedIn;
+)->{
+    send activateBatchOut("ACTIVATE|1|1|PRODUCT_X|2");
+    receive batchDrainedIn;
+    String result = (String)#batchDrainedIn;
+    if (result.startsWith("DRAINED|1")){
+        System.out.println("COORDINATOR SYSTEMJ SMOKE CONTRACT PASSED");
+    }
+    while(true){ pause; }
+}

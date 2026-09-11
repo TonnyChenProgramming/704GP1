@@ -1,0 +1,113 @@
+<!--
+  coordinator-contract.xml -- wiring for coordinator.sysj's smoke-test system:
+  CoordinatorCD plus every stub CD it depends on for this phase
+  (Coordinator_SystemI_Spec.md Section 7's "definition of done").
+
+  Channels (oChannel/iChannel): plain To=/From=, no Class/IP/Port needed,
+  even within one Local SubSystem process -- follows
+  704GP1/Eric/config/finishing-contract.xml and
+  COMPSYS704_Lab_2/sysj/Exercise6.xml's convention exactly.
+
+  Signals (oSignal/iSignal): the SystemJ XSD schema requires a Class
+  attribute on every oSignal/iSignal regardless of locality (confirmed by
+  an actual compiler run: "cvc-complex-type.4: Attribute 'Class' must
+  appear on element 'oSignal'" on an earlier version of this file that
+  omitted it, wrongly assuming signals worked the same way as channels).
+  Fixed to follow COMPSYS704_Lab_3's controller.xml/plant.xml convention
+  instead: com.systemj.ipc.SimpleServer on the receiving (iSignal) side,
+  com.systemj.ipc.SimpleClient on the sending (oSignal) side, both pointed
+  at 127.0.0.1 with a matching Port per signal pair -- even though
+  everything here runs in one process, the loopback socket still works.
+  Note iSignal never takes a From= attribute (only oSignal takes To=); an
+  earlier version of this file incorrectly put From= on iSignal elements,
+  copying the channel convention -- also fixed.
+-->
+<System xmlns="http://systemjtechnology.com">
+    <SubSystem Name="ZhiyuanCoordinatorContract" Local="true">
+
+        <ClockDomain Name="CoordinatorCD" Class="CoordinatorCD">
+            <iChannel Name="activateBatchIn" From="BatchManagerHarnessCD.activateBatchOut" />
+            <oChannel Name="batchDrainedOut" To="BatchManagerHarnessCD.batchDrainedIn" />
+
+            <oChannel Name="loaderJobOut"   To="LoaderControllerCD.jobIn" />
+            <iChannel Name="loaderReportIn" From="LoaderControllerCD.reportOut" />
+            <oChannel Name="loaderAckOut"   To="LoaderControllerCD.ackIn" />
+
+            <oChannel Name="fillerJobOut"   To="FillerControllerCD.jobIn" />
+            <iChannel Name="fillerReportIn" From="FillerControllerCD.reportOut" />
+            <oChannel Name="fillerAckOut"   To="FillerControllerCD.ackIn" />
+
+            <oChannel Name="lidJobOut"   To="LidControllerCD.jobIn" />
+            <iChannel Name="lidReportIn" From="LidControllerCD.reportOut" />
+            <oChannel Name="lidAckOut"   To="LidControllerCD.ackIn" />
+
+            <oChannel Name="capperJobOut"   To="CapperControllerCD.jobIn" />
+            <iChannel Name="capperReportIn" From="CapperControllerCD.reportOut" />
+            <oChannel Name="capperAckOut"   To="CapperControllerCD.ackIn" />
+
+            <oChannel Name="labellerJobOut"   To="LabellerControllerCD.jobIn" />
+            <iChannel Name="labellerReportIn" From="LabellerControllerCD.reportOut" />
+            <oChannel Name="labellerAckOut"   To="LabellerControllerCD.ackIn" />
+
+            <oChannel Name="unloaderJobOut"   To="UnloaderControllerCD.jobIn" />
+            <iChannel Name="unloaderReportIn" From="UnloaderControllerCD.reportOut" />
+            <oChannel Name="unloaderAckOut"   To="UnloaderControllerCD.ackIn" />
+
+            <oSignal Name="rotateTrigger" To="RotaryTableControllerCD.rotateTrigger" Class="com.systemj.ipc.SimpleClient" IP="127.0.0.1" Port="30001" />
+            <iSignal Name="tableAligned"  Class="com.systemj.ipc.SimpleServer" IP="127.0.0.1" Port="30002" />
+
+            <iSignal Name="safetyPermitLost" Class="com.systemj.ipc.SimpleServer" IP="127.0.0.1" Port="30003" />
+        </ClockDomain>
+
+        <ClockDomain Name="LoaderControllerCD" Class="LoaderControllerCD">
+            <iChannel Name="jobIn"    From="CoordinatorCD.loaderJobOut" />
+            <oChannel Name="reportOut" To="CoordinatorCD.loaderReportIn" />
+            <iChannel Name="ackIn"    From="CoordinatorCD.loaderAckOut" />
+        </ClockDomain>
+
+        <ClockDomain Name="FillerControllerCD" Class="FillerControllerCD">
+            <iChannel Name="jobIn"    From="CoordinatorCD.fillerJobOut" />
+            <oChannel Name="reportOut" To="CoordinatorCD.fillerReportIn" />
+            <iChannel Name="ackIn"    From="CoordinatorCD.fillerAckOut" />
+        </ClockDomain>
+
+        <ClockDomain Name="LidControllerCD" Class="LidControllerCD">
+            <iChannel Name="jobIn"    From="CoordinatorCD.lidJobOut" />
+            <oChannel Name="reportOut" To="CoordinatorCD.lidReportIn" />
+            <iChannel Name="ackIn"    From="CoordinatorCD.lidAckOut" />
+        </ClockDomain>
+
+        <ClockDomain Name="CapperControllerCD" Class="CapperControllerCD">
+            <iChannel Name="jobIn"    From="CoordinatorCD.capperJobOut" />
+            <oChannel Name="reportOut" To="CoordinatorCD.capperReportIn" />
+            <iChannel Name="ackIn"    From="CoordinatorCD.capperAckOut" />
+        </ClockDomain>
+
+        <ClockDomain Name="LabellerControllerCD" Class="LabellerControllerCD">
+            <iChannel Name="jobIn"    From="CoordinatorCD.labellerJobOut" />
+            <oChannel Name="reportOut" To="CoordinatorCD.labellerReportIn" />
+            <iChannel Name="ackIn"    From="CoordinatorCD.labellerAckOut" />
+        </ClockDomain>
+
+        <ClockDomain Name="UnloaderControllerCD" Class="UnloaderControllerCD">
+            <iChannel Name="jobIn"    From="CoordinatorCD.unloaderJobOut" />
+            <oChannel Name="reportOut" To="CoordinatorCD.unloaderReportIn" />
+            <iChannel Name="ackIn"    From="CoordinatorCD.unloaderAckOut" />
+        </ClockDomain>
+
+        <ClockDomain Name="RotaryTableControllerCD" Class="RotaryTableControllerCD">
+            <iSignal Name="rotateTrigger" Class="com.systemj.ipc.SimpleServer" IP="127.0.0.1" Port="30001" />
+            <oSignal Name="tableAligned"  To="CoordinatorCD.tableAligned" Class="com.systemj.ipc.SimpleClient" IP="127.0.0.1" Port="30002" />
+        </ClockDomain>
+
+        <ClockDomain Name="SafetyMonitorCD" Class="SafetyMonitorCD">
+            <oSignal Name="safetyPermitLost" To="CoordinatorCD.safetyPermitLost" Class="com.systemj.ipc.SimpleClient" IP="127.0.0.1" Port="30003" />
+        </ClockDomain>
+
+        <ClockDomain Name="BatchManagerHarnessCD" Class="BatchManagerHarnessCD">
+            <oChannel Name="activateBatchOut" To="CoordinatorCD.activateBatchIn" />
+            <iChannel Name="batchDrainedIn"   From="CoordinatorCD.batchDrainedOut" />
+        </ClockDomain>
+
+    </SubSystem>
+</System>
