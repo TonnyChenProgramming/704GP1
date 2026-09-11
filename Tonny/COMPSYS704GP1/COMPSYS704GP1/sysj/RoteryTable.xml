@@ -1,19 +1,16 @@
 <System xmlns="http://systemjtechnology.com">
-
     <SubSystem Name="RotaryTableSubsystem" Local="true">
         <ClockDomain Name="RotaryTableControllerCD" Class="RotaryTableController">
-            <oChannel Name="rotate" To="RotaryTablePlantCD.rotate"/>
-            <iChannel Name="aligned" From="RotaryTablePlantCD.aligned"/>
-            <iChannel Name="occupancy" From="RotaryTablePlantCD.occupancy"/>
+            <iSignal Name="rotateTrigger" Class="com.systemj.ipc.SimpleServer" IP="127.0.0.1" Port="30001" />
+            <oSignal Name="tableAligned" To="CoordinatorCD.tableAligned" Class="com.systemj.ipc.SimpleClient" IP="127.0.0.1" Port="30002" />
+            <oChannel Name="rotate" To="RotaryTablePlantCD.rotate" />
+            <iChannel Name="aligned" From="RotaryTablePlantCD.aligned" />
+            <iChannel Name="occupancy" From="RotaryTablePlantCD.occupancy" />
         </ClockDomain>
-
-
         <ClockDomain Name="RotaryTablePlantCD" Class="RotaryTablePlant">
-            <iChannel Name="rotate" From="RotaryTableControllerCD.rotate"/>
-            <oChannel Name="aligned" To="RotaryTableControllerCD.aligned"/>
-            <oChannel Name="occupancy" To="RotaryTableControllerCD.occupancy"/>
+            <iChannel Name="rotate" From="RotaryTableControllerCD.rotate" />
+            <oChannel Name="aligned" To="RotaryTableControllerCD.aligned" />
+            <oChannel Name="occupancy" To="RotaryTableControllerCD.occupancy" />
         </ClockDomain>
-
     </SubSystem>
-
 </System>

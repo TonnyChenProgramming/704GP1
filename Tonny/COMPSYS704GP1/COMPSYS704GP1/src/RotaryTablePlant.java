@@ -44,7 +44,7 @@ public class RotaryTablePlant extends ClockDomain{
         case 1 : 
           S6139=2;
           S6139=2;
-          positionOccupancy_thread_1 = "100000";//sysj/RoteryTablePlant.sysj line: 12, column: 5
+          positionOccupancy_thread_1 = "000000";//sysj/RoteryTablePlant.sysj line: 12, column: 5
           S1022=0;
           S6=0;
           if(!rotate_in.isPartnerPresent() || rotate_in.isPartnerPreempted()){//sysj/RoteryTablePlant.sysj line: 16, column: 9
