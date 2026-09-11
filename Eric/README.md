@@ -36,6 +36,13 @@ controls emit `OperatorCommand` objects through the `VisualizationBridge`; the
 GUI has no plant-actuator reference and therefore cannot bypass the shared
 Production Coordinator.
 
+The panel is also reusable as `EabsDashboardPanel(bridge, Mode.READ_ONLY)`
+without operator controls. It displays extra reported controllers (for example
+a backup filler), distinguishes `NO DATA` from OFFLINE, and shows confirmed
+liquid A/B raw values without assuming units. The original constructor keeps
+operator mode. Recovery-specific policy and controls remain in the IP; see
+the shared-dashboard contract in [docs/INTEGRATION.md](docs/INTEGRATION.md).
+
 ## Layout
 
 ```text
@@ -88,6 +95,9 @@ This compiles with Java 8-compatible bytecode and tests the normal bottle
 route, all four controller/plant pairs, evidence-gated tracking, stale-result
 rejection, latching/acknowledgement, fault/reset/safety/timeout behaviour,
 multiple simultaneous workpieces, persistence recovery and the GUI boundary.
+The shared GP/IP panel checks print `SHARED GP-IP DASHBOARD TESTS PASSED`
+and render `build/shared-dashboard-readonly-preview.png` and
+`build/shared-dashboard-operator-preview.png` for visual inspection.
 
 To compile and execute the SystemJ clock-domain/channel contract, use:
 

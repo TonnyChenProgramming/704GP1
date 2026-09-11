@@ -2,6 +2,7 @@ package nz.ac.auckland.eabs.eric.gui;
 
 import nz.ac.auckland.eabs.eric.model.MachineState;
 import nz.ac.auckland.eabs.eric.tracking.WorkpieceSnapshot;
+import nz.ac.auckland.eabs.eric.tracking.WorkpieceTracker;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -20,12 +21,26 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.TreeSet;
 
 /** Live symbolic GP view. All buttons submit intent through the bridge. */
 public final class EabsDashboardPanel extends JPanel
         implements VisualizationBridge.StateListener {
+    private static final long serialVersionUID = 1L;
+
+    /** View capability only; backend command authorization is still required. */
+    public enum Mode { OPERATOR, READ_ONLY }
+
+    private static final List<String> BASELINE_MACHINES = Arrays.asList(
+            "BottleLoaderController", "ConveyorController", "RotaryTableController",
+            "FillerController", "LidLoaderController", "CapperController",
+            "LabelerController", "UnloaderController");
     private static final Color OFFLINE = new Color(155, 155, 155);
     private static final Color READY = new Color(76, 175, 80);
     private static final Color BUSY = new Color(255, 193, 7);
@@ -34,6 +49,8 @@ public final class EabsDashboardPanel extends JPanel
     private static final Color HOLDING = new Color(255, 152, 0);
 
     private final VisualizationBridge bridge;
+    private final Mode mode;
+    private final JPanel machinePanel = new JPanel(new GridLayout(0, 4, 6, 6));
     private final JLabel orderSummary = new JLabel("No active order");
     private final JLabel safetySummary = new JLabel("UNSAFE");
     private final JLabel waitSummary = new JLabel("Waiting for coordinator");
@@ -45,7 +62,8 @@ public final class EabsDashboardPanel extends JPanel
             new DefaultTableModel(
                     new Object[] {
                         "Workpiece", "Location", "State",
-                        "Current", "Next", "Completed"
+                        "Current", "Next", "Completed",
+                        "Confirmed A (raw)", "Confirmed B (raw)"
                     },
                     0) {
                 @Override
@@ -55,14 +73,29 @@ public final class EabsDashboardPanel extends JPanel
             };
 
     public EabsDashboardPanel(VisualizationBridge bridge) {
-        this.bridge = bridge;
+        this(bridge, Mode.OPERATOR);
+    }
+
+    /** READ_ONLY creates no operator controls or command-producing listeners. */
+    public EabsDashboardPanel(VisualizationBridge bridge, Mode mode) {
+        this.bridge = Objects.requireNonNull(bridge, "bridge");
+        this.mode = Objects.requireNonNull(mode, "mode");
         setLayout(new BorderLayout(10, 10));
         setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
         add(buildHeader(), BorderLayout.NORTH);
         add(buildCentre(), BorderLayout.CENTER);
-        add(buildControls(), BorderLayout.SOUTH);
+        if (mode == Mode.OPERATOR) {
+            add(buildControls(), BorderLayout.SOUTH);
+        } else {
+            JLabel notice = new JLabel("Read-only shared view - use the owning coordinator's controls.");
+            notice.setName("readOnlyNotice");
+            notice.setBorder(BorderFactory.createEmptyBorder(8, 4, 8, 4));
+            add(notice, BorderLayout.SOUTH);
+        }
         bridge.addListener(this);
     }
+
+    public Mode getMode() { return mode; }
 
     private JPanel buildHeader() {
         JPanel panel = new JPanel(new BorderLayout(10, 4));
@@ -86,12 +119,23 @@ public final class EabsDashboardPanel extends JPanel
         centre.add(buildLineView(), BorderLayout.NORTH);
 
         JTable workpieceTable = new JTable(workpieceModel);
+        workpieceTable.setName("workpieces");
         workpieceTable.setFillsViewportHeight(true);
         workpieceTable.setRowHeight(24);
+        workpieceTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+        int[] widths = {100, 190, 110, 140, 140, 240, 140, 140};
+        for (int column = 0; column < widths.length; column++) {
+            workpieceTable.getColumnModel().getColumn(column).setPreferredWidth(widths[column]);
+        }
+        workpieceTable.setToolTipText("Confirmed amounts only; raw source strings. Units are not stored in the GP snapshot.");
         JScrollPane tableScroll = new JScrollPane(workpieceTable);
+        tableScroll.setColumnHeaderView(workpieceTable.getTableHeader());
         tableScroll.setBorder(BorderFactory.createTitledBorder(
                 "Bottle twins - confirmed state"));
-        centre.add(tableScroll, BorderLayout.CENTER);
+        JPanel bottles = new JPanel(new BorderLayout(0, 4));
+        bottles.add(tableScroll, BorderLayout.CENTER);
+        bottles.add(new JLabel("Confirmed A/B are raw values; unit not supplied here. Missing is not zero. Live/partial doses stay in the IP view."), BorderLayout.SOUTH);
+        centre.add(bottles, BorderLayout.CENTER);
         centre.add(buildMachineView(), BorderLayout.SOUTH);
         return centre;
     }
@@ -121,25 +165,47 @@ public final class EabsDashboardPanel extends JPanel
     }
 
     private JPanel buildMachineView() {
-        JPanel machines = new JPanel(new GridLayout(2, 4, 6, 6));
-        machines.setBorder(BorderFactory.createTitledBorder(
-                "Controller states"));
-        addMachine(machines, "BottleLoaderController");
-        addMachine(machines, "ConveyorController");
-        addMachine(machines, "RotaryTableController");
-        addMachine(machines, "FillerController");
-        addMachine(machines, "LidLoaderController");
-        addMachine(machines, "CapperController");
-        addMachine(machines, "LabelerController");
-        addMachine(machines, "UnloaderController");
-        return machines;
+        machinePanel.setName("machineStates");
+        machinePanel.setBorder(BorderFactory.createTitledBorder(
+                "Reported controller states - NO DATA is not OFFLINE"));
+        rebuildMachineCards(BASELINE_MACHINES);
+        return machinePanel;
+    }
+
+    private void rebuildMachineCards(List<String> ids) {
+        machineCards.clear();
+        machinePanel.removeAll();
+        for (String id : ids) { addMachine(machinePanel, id); }
+        machinePanel.revalidate();
+        machinePanel.repaint();
+    }
+
+    private void updateMachineCards(Map<String, MachineState> states) {
+        List<String> ids = new ArrayList<String>(BASELINE_MACHINES);
+        TreeSet<String> extensions = new TreeSet<String>();
+        for (String id : states.keySet()) {
+            if (id != null && !id.trim().isEmpty() && !BASELINE_MACHINES.contains(id)) {
+                extensions.add(id);
+            }
+        }
+        ids.addAll(extensions);
+        if (!ids.equals(new ArrayList<String>(machineCards.keySet()))) {
+            rebuildMachineCards(ids);
+        }
+        for (Map.Entry<String, JLabel> entry : machineCards.entrySet()) {
+            MachineState state = states.get(entry.getKey());
+            entry.getValue().setText(html(entry.getKey() + "\n"
+                    + (state == null ? "NO DATA" : state.name())));
+            entry.getValue().setBackground(state == null ? OFFLINE : machineColour(state));
+        }
     }
 
     private void addMachine(JPanel panel, String machineId) {
         JLabel card = new JLabel(
-                html(machineId + "\nOFFLINE"),
+                html(machineId + "\nNO DATA"),
                 SwingConstants.CENTER);
         card.setOpaque(true);
+        card.setName("machine:" + machineId);
         card.setBackground(OFFLINE);
         card.setForeground(Color.WHITE);
         card.setBorder(BorderFactory.createEmptyBorder(8, 4, 8, 4));
@@ -149,6 +215,7 @@ public final class EabsDashboardPanel extends JPanel
 
     private JPanel buildControls() {
         JPanel controls = new JPanel(new GridLayout(2, 1, 0, 2));
+        controls.setName("operatorControls");
         JPanel productionControls =
                 new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 2));
         JTextField orderField = new JTextField(10);
@@ -190,7 +257,7 @@ public final class EabsDashboardPanel extends JPanel
         JComboBox<String> speed =
                 new JComboBox<String>(new String[] {"0.5x", "1x", "2x", "5x"});
         speed.setSelectedItem("1x");
-        speed.addActionListener(event -> bridge.submitOperatorCommand(
+        speed.addActionListener(event -> submitCommand(
                 new OperatorCommand(
                         OperatorCommandType.SET_SIMULATION_SPEED,
                         "",
@@ -207,7 +274,7 @@ public final class EabsDashboardPanel extends JPanel
                 });
         recoveryControls.add(faultTarget);
         JButton inject = new JButton("Inject test fault");
-        inject.addActionListener(event -> bridge.submitOperatorCommand(
+        inject.addActionListener(event -> submitCommand(
                 new OperatorCommand(
                         OperatorCommandType.INJECT_SIMULATED_FAULT,
                         String.valueOf(faultTarget.getSelectedItem()),
@@ -223,12 +290,16 @@ public final class EabsDashboardPanel extends JPanel
             String target,
             JTextField valueField) {
         JButton button = new JButton(text);
-        button.addActionListener(event -> bridge.submitOperatorCommand(
+        button.addActionListener(event -> submitCommand(
                 new OperatorCommand(
                         type,
                         target,
                         valueField == null ? "" : valueField.getText())));
         return button;
+    }
+
+    private void submitCommand(OperatorCommand command) {
+        if (mode == Mode.OPERATOR) { bridge.submitOperatorCommand(command); }
     }
 
     @Override
@@ -276,16 +347,7 @@ public final class EabsDashboardPanel extends JPanel
                             : HOLDING);
         }
 
-        for (Map.Entry<String, JLabel> entry : machineCards.entrySet()) {
-            MachineState machineState =
-                    state.getMachineStates().get(entry.getKey());
-            if (machineState == null) {
-                machineState = MachineState.OFFLINE;
-            }
-            entry.getValue().setText(
-                    html(entry.getKey() + "\n" + machineState));
-            entry.getValue().setBackground(machineColour(machineState));
-        }
+        updateMachineCards(state.getMachineStates());
 
         workpieceModel.setRowCount(0);
         for (WorkpieceSnapshot workpiece : state.getWorkpieces()) {
@@ -298,9 +360,17 @@ public final class EabsDashboardPanel extends JPanel
                 workpiece.getStatus(),
                 workpiece.getCurrentOperation(),
                 workpiece.getNextOperation(),
-                workpiece.getCompletedOperations()
+                workpiece.getCompletedOperations(),
+                confirmedAmount(workpiece, WorkpieceTracker.LIQUID_A_EVIDENCE_KEY),
+                confirmedAmount(workpiece, WorkpieceTracker.LIQUID_B_EVIDENCE_KEY)
             });
         }
+    }
+
+    private static String confirmedAmount(WorkpieceSnapshot snapshot, String key) {
+        Map<String, String> amounts = snapshot.getActualDosedAmounts();
+        String value = amounts == null ? null : amounts.get(key);
+        return value == null || value.trim().isEmpty() ? "Not available" : value;
     }
 
     private static Color machineColour(MachineState state) {
@@ -321,7 +391,8 @@ public final class EabsDashboardPanel extends JPanel
 
     private static String html(String text) {
         return "<html><div style='text-align:center'>"
-                + text.replace("\n", "<br>")
+                + text.replace("&", "&amp;").replace("<", "&lt;")
+                        .replace(">", "&gt;").replace("\n", "<br>")
                 + "</div></html>";
     }
 

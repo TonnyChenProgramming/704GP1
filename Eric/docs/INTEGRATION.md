@@ -125,6 +125,69 @@ completed, rejected, in-process and remaining counts, safety permit/reason,
 diagnostic wait reason, machine states, six-position rotary occupancy and live
 workpiece snapshots.
 
+### Shared GP/IP dashboard (2026-09-11)
+
+The same Swing panel can be embedded in a GP or IP window. Its implementation
+has no IP dependency and the existing constructor remains operator-enabled:
+
+```java
+// Existing GP caller: all commands still go to this bridge's coordinator sink.
+EabsDashboardPanel operatorView = new EabsDashboardPanel(bridge);
+
+// IP/integration observer: no operator controls or command listeners are built.
+EabsDashboardPanel observerView = new EabsDashboardPanel(
+        bridge, EabsDashboardPanel.Mode.READ_ONLY);
+```
+
+Construct Swing components on the event-dispatch thread. Snapshots may be
+published from the simulation thread; the panel schedules rendering on the
+Swing thread. READ_ONLY limits this view only: the coordinator must still
+validate all commands received through other views or adapters.
+
+- `DashboardState.machineStates` is a **full current snapshot**, not a delta.
+  The eight baseline controller cards remain visible. Additional nonblank IDs
+  such as `BackupFillerController` appear automatically in sorted order. Extra
+  cards disappear if omitted from a later snapshot. An omitted/null baseline
+  state displays `NO DATA`; only explicit `MachineState.OFFLINE` means OFFLINE.
+  The view cannot distinguish real feedback from placeholders supplied by an
+  adapter. Do not publish READY for an unconnected machine as integration proof.
+- Bottle rows include `Confirmed A (raw)` and `Confirmed B (raw)` from
+  `getActualDosedAmounts()`. Original strings, including zero and precision,
+  are retained. Unavailable values display `Not available`, not zero. These
+  values are confirmed filler results, not live/partial dosing, and the panel
+  neither infers mL units nor decides whether a bottle passes recipe tolerance.
+- IP-specific attempt/version, recovery route, partial dose, station
+  reservation and retry decisions stay in the IP-owned view/model. Reusing this
+  panel does not move recovery policy into the GP or add a GP dependency on IP.
+- Sharing a panel class does **not** connect separate processes. The embedding
+  application must publish the intended tracker/controller snapshots through
+  its bridge and retain one authoritative command path and tracker-update owner.
+
+The local `IP_FillerRecovery/integration/gp/src/ip/filler/live/DemoWindow.java`
+now uses READ_ONLY for its GP tab, replacing recursive disabling of controls.
+That IP source is outside this Git repository. On another checkout, apply the
+two-argument constructor there and rebuild the IP against this updated Eric
+source folder (`RunDemo.cmd` without `-SkipBuild`). The IP's existing
+`Live recovery` tab remains its operator interface. The standalone GP preview
+still only logs requests; it is not a fully connected production coordinator.
+
+Run `Eric/scripts/build-and-test.ps1`, or **Eric Tests** in Eclipse, to include
+`SharedDashboardTest`. It checks dynamic cards and removal, missing versus
+explicit OFFLINE state, confirmed amounts and unavailable data, read-only
+command isolation, legacy operator actions and background-thread publication.
+It also renders read-only and operator previews under `Eric/build/` as
+`shared-dashboard-readonly-preview.png` and
+`shared-dashboard-operator-preview.png`. Fixtures are not live production data.
+
+Verification on 11 September: the GP Java subsystem suite (including confirmed
+dosing and shared-dashboard tests) passed. Rebuilding the sibling IP against
+these sources also passed its 52 adapter checks and all nine live SystemJ
+scenarios: normal, pre-start primary fault, mid-fill primary fault, backup
+busy/timeout, mid-fill backup fault, pause/resume, safety stop, manual primary
+fault and restoration during the P5 wait. The panel previews were inspected
+for both modes. These results establish isolated subsystem/IP-demo
+compatibility, not completion of the shared group's EABS integration.
+
 ## Decisions for the group meeting
 
 - Freeze the final SystemJ channel names, payload encoding and whether a
