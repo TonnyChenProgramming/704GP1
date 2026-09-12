@@ -22,7 +22,9 @@ $generatedRoot = Join-Path $ericRoot 'build\generated-systemj'
 $stagedLibraryRoot = Join-Path $ericRoot 'build\systemj-lib'
 $systemJSources = @(
     (Join-Path $ericRoot 'systemj\finishing_devices.sysj'),
-    (Join-Path $ericRoot 'systemj\finishing_contract.sysj')
+    (Join-Path $ericRoot 'systemj\finishing_contract.sysj'),
+    (Join-Path $ericRoot 'systemj\finishing_shims.sysj'),
+    (Join-Path $ericRoot 'systemj\finishing_shim_contract.sysj')
 )
 
 & (Join-Path $PSScriptRoot 'build-and-test.ps1')
@@ -132,3 +134,20 @@ foreach ($marker in $expected) {
 [System.IO.File]::WriteAllText((Join-Path $ericRoot 'build\systemj-dynamic-last.log'), $output)
 
 Write-Host 'ERIC SYSTEMJ BUILD AND CONTRACT TEST PASSED'
+
+# Separate process: legacy rich tests above retain their fail-closed startup.
+# Flat simulation opts into Tony's fixed-precondition / automatic-repair profile.
+$shimOutput = Invoke-FinishingProcess 'java' @('-Xmx256m', '-Djava.awt.headless=true',
+    '-Deric.finishing.flatSimulation=true', '-Deric.finishing.testMode=true',
+    '-cp', $classpath, 'com.systemj.SystemJRunner', 'config/finishing-shim-contract.xml') 30000
+Write-Host $shimOutput
+foreach ($station in @('LID', 'CAPPER', 'LABELLER', 'UNLOADER')) {
+    if (-not $shimOutput.Contains("ERIC FLAT SHIM $station PASSED")) {
+        throw "Flat shim marker missing: $station"
+    }
+}
+if (-not $shimOutput.Contains('ERIC SYSTEMJ FLAT SHIM ACCEPTANCE PASSED')) {
+    throw 'Flat shim run did not finish all four real controller/plant pairs.'
+}
+[System.IO.File]::WriteAllText((Join-Path $ericRoot 'build\systemj-flat-shim-last.log'), $shimOutput)
+Write-Host 'ERIC SYSTEMJ RICH AND FLAT CONTRACT TESTS PASSED'

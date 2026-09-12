@@ -1,0 +1,111 @@
+// Flat coordinator compatibility profile. Requires eric.finishing.flatSimulation=true.
+// Each CD has private state. Original controller/plant pairs remain unchanged.
+import nz.ac.auckland.eabs.eric.systemj.FlatFinishingShim;
+
+LidLoaderShimCD(
+    input String channel commandIn;
+    output String channel reportOut;
+    input String channel ackIn;
+    output String channel deviceJobOut;
+    input String channel deviceReportIn;
+    output String channel deviceAckOut;
+    output String channel deviceControlOut;
+    input String channel deviceControlReplyIn;
+)->{
+    FlatFinishingShim shim = new FlatFinishingShim("LID");
+    String action = ""; String value = ""; String reply = "";
+    while(true){
+        action = shim.nextAction(); value = shim.nextValue();
+        if(action.equals("COMMAND_IN")){ receive commandIn; reply = (String)#commandIn; shim.received(reply); }
+        else if(action.equals("ACK_IN")){ receive ackIn; reply = (String)#ackIn; shim.received(reply); }
+        else if(action.equals("REPORT_IN")){ receive deviceReportIn; reply = (String)#deviceReportIn; shim.received(reply); }
+        else if(action.equals("CONTROL_IN")){ receive deviceControlReplyIn; reply = (String)#deviceControlReplyIn; shim.received(reply); }
+        else if(action.equals("REPORT_OUT")){ send reportOut(value); shim.afterSend(); }
+        else if(action.equals("JOB_OUT")){ send deviceJobOut(value); shim.afterSend(); }
+        else if(action.equals("ACK_OUT")){ send deviceAckOut(value); shim.afterSend(); }
+        else if(action.equals("CONTROL_OUT")){ send deviceControlOut(value); shim.afterSend(); }
+        // HOLD intentionally advertises no READY after an unconfirmed safe stop.
+        pause;
+    }
+}
+
+CapperShimCD(
+    input String channel commandIn;
+    output String channel reportOut;
+    input String channel ackIn;
+    output String channel deviceJobOut;
+    input String channel deviceReportIn;
+    output String channel deviceAckOut;
+    output String channel deviceControlOut;
+    input String channel deviceControlReplyIn;
+)->{
+    FlatFinishingShim shim = new FlatFinishingShim("CAPPER");
+    String action = ""; String value = ""; String reply = "";
+    while(true){
+        action = shim.nextAction(); value = shim.nextValue();
+        if(action.equals("COMMAND_IN")){ receive commandIn; reply = (String)#commandIn; shim.received(reply); }
+        else if(action.equals("ACK_IN")){ receive ackIn; reply = (String)#ackIn; shim.received(reply); }
+        else if(action.equals("REPORT_IN")){ receive deviceReportIn; reply = (String)#deviceReportIn; shim.received(reply); }
+        else if(action.equals("CONTROL_IN")){ receive deviceControlReplyIn; reply = (String)#deviceControlReplyIn; shim.received(reply); }
+        else if(action.equals("REPORT_OUT")){ send reportOut(value); shim.afterSend(); }
+        else if(action.equals("JOB_OUT")){ send deviceJobOut(value); shim.afterSend(); }
+        else if(action.equals("ACK_OUT")){ send deviceAckOut(value); shim.afterSend(); }
+        else if(action.equals("CONTROL_OUT")){ send deviceControlOut(value); shim.afterSend(); }
+        // HOLD intentionally advertises no READY after an unconfirmed safe stop.
+        pause;
+    }
+}
+
+LabelerShimCD(
+    input String channel commandIn;
+    output String channel reportOut;
+    input String channel ackIn;
+    output String channel deviceJobOut;
+    input String channel deviceReportIn;
+    output String channel deviceAckOut;
+    output String channel deviceControlOut;
+    input String channel deviceControlReplyIn;
+)->{
+    FlatFinishingShim shim = new FlatFinishingShim("LABELLER");
+    String action = ""; String value = ""; String reply = "";
+    while(true){
+        action = shim.nextAction(); value = shim.nextValue();
+        if(action.equals("COMMAND_IN")){ receive commandIn; reply = (String)#commandIn; shim.received(reply); }
+        else if(action.equals("ACK_IN")){ receive ackIn; reply = (String)#ackIn; shim.received(reply); }
+        else if(action.equals("REPORT_IN")){ receive deviceReportIn; reply = (String)#deviceReportIn; shim.received(reply); }
+        else if(action.equals("CONTROL_IN")){ receive deviceControlReplyIn; reply = (String)#deviceControlReplyIn; shim.received(reply); }
+        else if(action.equals("REPORT_OUT")){ send reportOut(value); shim.afterSend(); }
+        else if(action.equals("JOB_OUT")){ send deviceJobOut(value); shim.afterSend(); }
+        else if(action.equals("ACK_OUT")){ send deviceAckOut(value); shim.afterSend(); }
+        else if(action.equals("CONTROL_OUT")){ send deviceControlOut(value); shim.afterSend(); }
+        // HOLD intentionally advertises no READY after an unconfirmed safe stop.
+        pause;
+    }
+}
+
+UnloaderShimCD(
+    input String channel commandIn;
+    output String channel reportOut;
+    input String channel ackIn;
+    output String channel deviceJobOut;
+    input String channel deviceReportIn;
+    output String channel deviceAckOut;
+    output String channel deviceControlOut;
+    input String channel deviceControlReplyIn;
+)->{
+    FlatFinishingShim shim = new FlatFinishingShim("UNLOADER");
+    String action = ""; String value = ""; String reply = "";
+    while(true){
+        action = shim.nextAction(); value = shim.nextValue();
+        if(action.equals("COMMAND_IN")){ receive commandIn; reply = (String)#commandIn; shim.received(reply); }
+        else if(action.equals("ACK_IN")){ receive ackIn; reply = (String)#ackIn; shim.received(reply); }
+        else if(action.equals("REPORT_IN")){ receive deviceReportIn; reply = (String)#deviceReportIn; shim.received(reply); }
+        else if(action.equals("CONTROL_IN")){ receive deviceControlReplyIn; reply = (String)#deviceControlReplyIn; shim.received(reply); }
+        else if(action.equals("REPORT_OUT")){ send reportOut(value); shim.afterSend(); }
+        else if(action.equals("JOB_OUT")){ send deviceJobOut(value); shim.afterSend(); }
+        else if(action.equals("ACK_OUT")){ send deviceAckOut(value); shim.afterSend(); }
+        else if(action.equals("CONTROL_OUT")){ send deviceControlOut(value); shim.afterSend(); }
+        // HOLD intentionally advertises no READY after an unconfirmed safe stop.
+        pause;
+    }
+}
