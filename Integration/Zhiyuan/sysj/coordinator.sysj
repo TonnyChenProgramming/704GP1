@@ -88,24 +88,71 @@ CoordinatorCD(
 
     // Safety Monitor CD -- broadcast signal, not a channel (SystemJ_Reference.md).
     input signal safetyPermitLost;
+
+    // Operator hazard-clear acknowledgement (Coordinator_Spec.md Section 6:
+    // "hazard cleared + operator acknowledgement + safetyPermit restored").
+    // Left unconnected in coordinator.xml for now -- the real source (a GUI
+    // button, design TBD with the group) isn't built yet. An unconnected
+    // input signal is simply always absent, which is fine for this
+    // compile/smoke-test pass since SafetyMonitorCD's stub never actually
+    // trips safetyPermitLost in the first place.
+    input signal operatorAckIn;
 )->{
-    // ---- shared CD state (index 0 unused; 1..5 usable, position 6 reserved/unused per brief Appendix 4) ----
-    String[] rotaryOccupant = new String[6];
-    String labellerOccupant = null;
-    String unloaderOccupant = null;
-    String batchId = null, recipeId = null, productId = null;
-    int totalQuantity = 0, admitted = 0, completed = 0, nextSeq = 0;
+    // ---- NOTE on this compiler's `||` sibling-sharing bug (found + verified
+    // 2026-09-12, cross-checked against COMPSYS704_Lab_2/sysj/Exercise6.sysj's
+    // BufferCD.java and COMPSYS704_Lab_3/sysj/plant.sysj's Plant.java, both of
+    // which actually compile) ----
+    // A plain (non-signal) variable declared *before* a `{...}||{...}` split
+    // and then read/written from more than one of its sibling branches
+    // compiles to a bare, undeclared identifier reference from every branch
+    // except the one it happened to be hoisted under -- it doesn't compile.
+    // The batch/occupancy state that used to live here as CD-top-level plain
+    // variables (rotaryOccupant, labellerOccupant, unloaderOccupant, batchId,
+    // recipeId, productId, totalQuantity, admitted, completed, nextSeq) was
+    // shared by all three reactions below exactly that way, so it has moved
+    // to be private, per-batch state declared inside Reaction 2 itself, which
+    // is now the only reaction that ever touches it. Everything the other two
+    // reactions need to pass in or out crosses via the signals declared next
+    // instead -- signals are the one thing this compiler DOES let `||`
+    // siblings share safely (confirmed working, e.g. Plant.sysj's `capPos`/
+    // `capDec`, each declared once before a 6-way `||` and both emitted to
+    // and read from multiple sibling branches).
 
     // Internal local signals (Coordinator_SystemI_Spec.md Section 3.2: reactions
     // communicate via internal local signals, not channels -- channels are for
     // inter-CD boundaries only).
-    signal batchActive, batchDrainedLocal;
+    String signal batchActivate;   // Reaction 1 -> Reaction 2: raw "ACTIVATE|..." payload, unparsed
+    signal batchDrainedLocal;      // Reaction 2 -> Reaction 1: this batch has fully drained
+    signal operatorAcknowledge;    // Reaction 3 -> Reaction 2: operator confirmed safe to resume
+    // Reaction 2's own five station branches -> Reaction 2's own post-join
+    // code, replacing the old `boolean fillerFaulted = false, ...;` shared
+    // across that inner 5-way `||` (same bug, one level deeper).
+    int signal fillerFaultSig, lidFaultSig, capperFaultSig, labellerFaultSig, unloaderFaultSig;
 
     {
         // -------- Reaction 1: WAIT_ORDER (order/batch activation) --------
+        // Thin relay only now -- parsing and all per-batch state moved into
+        // Reaction 2, which owns them exclusively (see the CD-state note
+        // above). This reaction just forwards the raw payload and keeps its
+        // original job of not accepting a new activation until the previous
+        // batch has fully drained.
         while(true){
             receive activateBatchIn;
-            String msg = (String)#activateBatchIn;
+            emit batchActivate((String)#activateBatchIn);
+            await(batchDrainedLocal);
+        }
+    }
+    ||
+    {
+        // -------- Reaction 2: PREPARE_BATCH .. UPDATE_CONFIRMED_POSITIONS,
+        // preempted by a safety hazard (Coordinator_Spec.md Section 6). --------
+        // Owns the entire per-batch lifecycle end-to-end now (parsing,
+        // occupancy state, and the safety rollback that used to be a
+        // separate reaction reaching into this one's state -- see the
+        // CD-state note above).
+        while(true){
+            await(batchActivate);
+            String msg = (String)#batchActivate;
             // Manual indexOf/substring parsing, not .split() -- .split() returning
             // an array assigned straight into a local (`Type[] x = expr;`) crashes
             // this SystemJ compiler's field-hoisting step (emits an invalid `..`
@@ -114,23 +161,15 @@ CoordinatorCD(
             int msgP2 = msg.indexOf("|", msgP1 + 1);
             int msgP3 = msg.indexOf("|", msgP2 + 1);
             int msgP4 = msg.indexOf("|", msgP3 + 1);
-            batchId = msg.substring(msgP1 + 1, msgP2);
-            recipeId = msg.substring(msgP2 + 1, msgP3);
-            productId = msg.substring(msgP3 + 1, msgP4);
-            totalQuantity = Integer.parseInt(msg.substring(msgP4 + 1));
-            admitted = 0; completed = 0; nextSeq = 0;
-            for (int p = 1; p <= 5; p++){ rotaryOccupant[p] = null; }
-            labellerOccupant = null; unloaderOccupant = null;
-            emit batchActive;
-            await(batchDrainedLocal);
-        }
-    }
-    ||
-    {
-        // -------- Reaction 2: PREPARE_BATCH .. UPDATE_CONFIRMED_POSITIONS,
-        // preempted by a safety hazard (Coordinator_Spec.md Section 6). --------
-        while(true){
-            await(batchActive);
+            String batchId = msg.substring(msgP1 + 1, msgP2);
+            String recipeId = msg.substring(msgP2 + 1, msgP3);
+            String productId = msg.substring(msgP3 + 1, msgP4);
+            int totalQuantity = Integer.parseInt(msg.substring(msgP4 + 1));
+            int admitted = 0, completed = 0, nextSeq = 0;
+            // index 0 unused; 1..5 usable, position 6 reserved/unused per brief Appendix 4
+            String[] rotaryOccupant = new String[6];
+            String labellerOccupant = null, unloaderOccupant = null;
+
             weak abort(safetyPermitLost){
                 while(admitted < totalQuantity || rotaryOccupant[1] != null || rotaryOccupant[2] != null
                         || rotaryOccupant[3] != null || rotaryOccupant[4] != null || rotaryOccupant[5] != null
@@ -169,8 +208,13 @@ CoordinatorCD(
                     // (`{await (A);} || {await (B);}`), so it correctly reproduces
                     // Coordinator.java's "wait for every dispatched station to report DONE
                     // before indexing" rule without polling.
-                    boolean fillerFaulted = false, lidFaulted = false, capperFaulted = false,
-                            labellerFaulted = false, unloaderFaulted = false;
+                    // Reset each station's fault signal fresh this cycle (mirrors
+                    // Plant.sysj's `emit capPos(0);` pattern) -- these used to be a
+                    // `boolean ... = false` declared here and written from inside
+                    // the five sibling branches below, which doesn't compile (see
+                    // the CD-state note above).
+                    emit fillerFaultSig(0); emit lidFaultSig(0); emit capperFaultSig(0);
+                    emit labellerFaultSig(0); emit unloaderFaultSig(0);
                     {
                         if (rotaryOccupant[2] != null){
                             String wp = rotaryOccupant[2];
@@ -184,7 +228,7 @@ CoordinatorCD(
                                 send fillerAckOut("ACK|" + jobId + "|" + wp);
                             } else {
                                 System.out.println("TRACKER setStatus " + wp + " FAULT");
-                                fillerFaulted = true;
+                                emit fillerFaultSig(1);
                             }
                         }
                     }
@@ -202,7 +246,7 @@ CoordinatorCD(
                                 send lidAckOut("ACK|" + jobId + "|" + wp);
                             } else {
                                 System.out.println("TRACKER setStatus " + wp + " FAULT");
-                                lidFaulted = true;
+                                emit lidFaultSig(1);
                             }
                         }
                     }
@@ -220,7 +264,7 @@ CoordinatorCD(
                                 send capperAckOut("ACK|" + jobId + "|" + wp);
                             } else {
                                 System.out.println("TRACKER setStatus " + wp + " FAULT");
-                                capperFaulted = true;
+                                emit capperFaultSig(1);
                             }
                         }
                     }
@@ -238,7 +282,7 @@ CoordinatorCD(
                                 send labellerAckOut("ACK|" + jobId + "|" + wp);
                             } else {
                                 System.out.println("TRACKER setStatus " + wp + " FAULT");
-                                labellerFaulted = true;
+                                emit labellerFaultSig(1);
                             }
                         }
                     }
@@ -256,13 +300,20 @@ CoordinatorCD(
                                 send unloaderAckOut("ACK|" + jobId + "|" + wp);
                             } else {
                                 System.out.println("TRACKER setStatus " + wp + " FAULT");
-                                unloaderFaulted = true;
+                                emit unloaderFaultSig(1);
                             }
                         }
                     }
 
-                    boolean anyFaulted = fillerFaulted || lidFaulted || capperFaulted
-                            || labellerFaulted || unloaderFaulted;
+                    // Reading the signals' *values* here (not gated by present()) is the
+                    // same pattern Plant.sysj uses for `#capPos` -- a valued signal's
+                    // last-emitted value persists across ticks even once its one-tick
+                    // "presence" has cleared, which is exactly what's needed here since
+                    // an early-finishing station's fault can be several ticks old by the
+                    // time this join is reached.
+                    boolean anyFaulted = ((Integer)#fillerFaultSig == 1) || ((Integer)#lidFaultSig == 1)
+                            || ((Integer)#capperFaultSig == 1) || ((Integer)#labellerFaultSig == 1)
+                            || ((Integer)#unloaderFaultSig == 1);
 
                     if (!anyFaulted){
                         // ---- INDEX_TABLE ----
@@ -311,9 +362,53 @@ CoordinatorCD(
             // Control resumes here immediately once safetyPermitLost preempted the body above
             // (weak abort: the branch mid-actuation at that instant finishes its current
             // send/receive pair first, matching "Controllers finish only the actuator action
-            // required to reach their safe condition"). Reaction 3 below owns SAFE_HOLD
-            // bookkeeping; this reaction simply re-loops to await(batchActive) once the batch
-            // (still active, now short some discarded/rolled-back bottles) needs to resume.
+            // required to reach their safe condition").
+            //
+            // The SAFE_HOLD rollback used to be a separate Reaction 3 reaching directly into
+            // this reaction's rotaryOccupant/labellerOccupant/unloaderOccupant/admitted state --
+            // exactly the "|| sibling shares a plain variable" pattern that doesn't compile (see
+            // the CD-state note above). Now that this state is private to Reaction 2, the
+            // rollback has to happen here instead. Gate it on safetyPermitLost actually being
+            // present: if the while loop above instead exited normally (batch fully drained, no
+            // hazard), every rotaryOccupant/labellerOccupant/unloaderOccupant slot is already
+            // null here by construction, so running the discard loop unconditionally would be
+            // harmless anyway -- but only the *hazard* case should block waiting for the
+            // operator, so it's gated explicitly rather than relying on that being a no-op.
+            present(safetyPermitLost){
+                // Discard every in-flight bottle and roll back `admitted` so PREPARE_BATCH admits
+                // fresh replacements once recovered -- mirrors Coordinator.java's enterSafeHold()
+                // (see that method's comment for why the rollback is required: otherwise the batch
+                // could never reach total_quantity again once bottles are discarded).
+                int discarded = 0;
+                for (int p = 1; p <= 5; p++){
+                    if (rotaryOccupant[p] != null){
+                        System.out.println("TRACKER setStatus " + rotaryOccupant[p] + " ABORTED");
+                        rotaryOccupant[p] = null;
+                        discarded++;
+                    }
+                }
+                if (labellerOccupant != null){
+                    System.out.println("TRACKER setStatus " + labellerOccupant + " ABORTED");
+                    labellerOccupant = null;
+                    discarded++;
+                }
+                if (unloaderOccupant != null){
+                    System.out.println("TRACKER setStatus " + unloaderOccupant + " ABORTED");
+                    unloaderOccupant = null;
+                    discarded++;
+                }
+                admitted = admitted - discarded;
+
+                await(!safetyPermitLost);
+                // Coordinator_Spec.md Section 6: "hazard cleared + operator acknowledgement +
+                // safetyPermit restored". Reaction 3 below relays the operator's physical
+                // acknowledgement as `operatorAcknowledge`; this assumes an operator's response
+                // takes at least a few ticks (human reaction time), so this `await` is already
+                // parked and listening well before Reaction 3 could possibly emit it -- a pulse
+                // signal emitted before anything is awaiting it would otherwise be missed.
+                await(operatorAcknowledge);
+            }
+
             if (admitted == totalQuantity && completed == totalQuantity){
                 send batchDrainedOut("DRAINED|" + batchId);
                 emit batchDrainedLocal;
@@ -322,40 +417,17 @@ CoordinatorCD(
     }
     ||
     {
-        // -------- Reaction 3: safety coordination (Coordinator_Spec.md Section 6) --------
+        // -------- Reaction 3: operator-acknowledgement relay (Coordinator_Spec.md
+        // Section 6) --------
+        // Pure signal relay only -- the actual SAFE_HOLD rollback moved into
+        // Reaction 2 itself (see that reaction's `present(safetyPermitLost)` block above),
+        // since this reaction used to reach directly into Reaction 2's occupancy/admitted
+        // state, which doesn't compile once that state is private to Reaction 2.
         while(true){
             await(safetyPermitLost);
-            // Discard every in-flight bottle and roll back `admitted` so PREPARE_BATCH admits
-            // fresh replacements once recovered -- mirrors Coordinator.java's enterSafeHold()
-            // (see that method's comment for why the rollback is required: otherwise the batch
-            // could never reach total_quantity again once bottles are discarded).
-            int discarded = 0;
-            for (int p = 1; p <= 5; p++){
-                if (rotaryOccupant[p] != null){
-                    System.out.println("TRACKER setStatus " + rotaryOccupant[p] + " ABORTED");
-                    rotaryOccupant[p] = null;
-                    discarded++;
-                }
-            }
-            if (labellerOccupant != null){
-                System.out.println("TRACKER setStatus " + labellerOccupant + " ABORTED");
-                labellerOccupant = null;
-                discarded++;
-            }
-            if (unloaderOccupant != null){
-                System.out.println("TRACKER setStatus " + unloaderOccupant + " ABORTED");
-                unloaderOccupant = null;
-                discarded++;
-            }
-            admitted = admitted - discarded;
-
+            await(operatorAckIn);
+            emit operatorAcknowledge;
             await(!safetyPermitLost);
-            // TODO(open item): Coordinator_Spec.md Section 6 also requires an explicit operator
-            // acknowledgement before resuming ("hazard cleared + operator acknowledgement +
-            // safetyPermit restored"), matching Coordinator.java's acknowledgeSafetyClear()/
-            // operatorAcknowledged flag. This draft only reconstructs !safetyPermitLost -- add a
-            // second input signal (name TBD with the group) and
-            // `await(!safetyPermitLost); await(operatorAcknowledge);` once agreed.
         }
     }
 }
