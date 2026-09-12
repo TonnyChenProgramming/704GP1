@@ -2,7 +2,7 @@
      Safety input is exposed but no safety monitor is connected. Not a safety-certified profile. -->
 <System xmlns="http://systemjtechnology.com">
     <SubSystem Name="IntegratedCoordinatorAcceptance" Local="true">
-        <ClockDomain Name="CoordinatorBatchHarnessCD" Class="CoordinatorBatchHarnessCD">
+        <ClockDomain Name="CoordinatorBatchHarnessCD" Class="CoordinatorFaultHarnessCD">
             <oChannel Name="activateBatchOut" To="CoordinatorCD.activateBatchIn" />
             <iChannel Name="batchResultIn" From="CoordinatorCD.batchDrainedOut" />
         </ClockDomain>

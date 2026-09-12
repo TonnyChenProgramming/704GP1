@@ -1,0 +1,32 @@
+// Test-only batch source. Never use instead of the actual POS in a final demo.
+import nz.ac.auckland.eabs.zhiyuan.coordinator.IntegratedCoordinatorTest;
+CoordinatorBatchHarnessCD(
+    output String channel activateBatchOut;
+    input String channel batchResultIn;
+)->{
+    String result = "";
+    send activateBatchOut("ACTIVATE|BAD|R1|PRODUCT|1");
+    receive batchResultIn; result = (String)#batchResultIn;
+    if(!result.equals("REJECTED|BAD|INVALID_BATCH_OR_RECIPE")){ throw new IllegalStateException(result); }
+    send activateBatchOut("ACTIVATE|B1|R1|PRODUCT_X|8|20|80|ORDER-1");
+    receive batchResultIn; result = (String)#batchResultIn;
+    if(!result.equals("DRAINED|B1")){ throw new IllegalStateException(result); }
+    send activateBatchOut("ACTIVATE|B2|R2|PRODUCT_Y|2|35|65|ORDER-1");
+    receive batchResultIn; result = (String)#batchResultIn;
+    if(!result.equals("DRAINED|B2")){ throw new IllegalStateException(result); }
+    System.out.println("COORDINATOR REAL DEVICE INTEGRATION PASSED: 8 + 2 bottles, 2 recipes, invalid batch rejected");
+    IntegratedCoordinatorTest.finishRun();
+}
+
+// Same actual machine/plant graph; test-only LID plant fault through the shim.
+CoordinatorFaultHarnessCD(
+    output String channel activateBatchOut;
+    input String channel batchResultIn;
+)->{
+    String result = "";
+    send activateBatchOut("ACTIVATE|F1|R1|PRODUCT_X|1|20|80|ORDER-F");
+    receive batchResultIn; result = (String)#batchResultIn;
+    if(!result.startsWith("FAULT|F1|LID_")){ throw new IllegalStateException(result); }
+    System.out.println("COORDINATOR REAL DEVICE FAULT HOLD PASSED: " + result);
+    IntegratedCoordinatorTest.finishRun();
+}
