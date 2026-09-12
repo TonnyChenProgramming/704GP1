@@ -62,6 +62,7 @@ public final class EricSubsystemTest {
         DosedAmountsTrackerTest.runAll();
         SharedDashboardTest.runAll();
         FinishingEndpointTest.runAll();
+        FlatShimTest.runAll();
         System.out.println("ERIC GP SUBSYSTEM TESTS PASSED");
     }
 

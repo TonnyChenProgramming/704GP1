@@ -1,5 +1,14 @@
 # Eric - Group Project work package
 
+## Integration branch: Tony flat shim handoff
+
+The `Integration/Eric` copy now includes four tested flat-protocol shim CDs for
+Tony's coordinator interface. See [docs/FLAT_FINISHING_SHIM.md](docs/FLAT_FINISHING_SHIM.md)
+for wiring, exact grammar, simulation assumptions and the first real-coordinator
+checkpoint. This does not modify the underlying controller/plant pairs or prove
+full-line integration. Use `Integration/Eric/scripts/build-and-test-systemj.ps1`
+from the repository root to run both rich and flat SystemJ contracts.
+
 This folder implements Eric's assigned contribution to the COMPSYS 704
 Project 1 Group Project:
 

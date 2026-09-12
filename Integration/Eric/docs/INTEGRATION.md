@@ -1,5 +1,14 @@
 # Eric subsystem integration contract
 
+## Selected flat simulation adapter (12 September 2026)
+
+For Tony's selected coordinator-facing compatibility profile, see
+[FLAT_FINISHING_SHIM.md](FLAT_FINISHING_SHIM.md). It exposes commandIn/reportOut/ackIn,
+keeps rich controller internals unchanged, and explicitly assumes plant
+preconditions and automatic simulated fault repair. The older rich contract below
+still describes internal controllers and Java models, not the flat shim wire.
+Tracker forwarding and live safety integration are separate pending work.
+
 This file records the current proposed boundary between Eric's GP work package
 and the shared EABS. It describes implemented interfaces, but it does not turn
 unconfirmed design choices into group decisions.
