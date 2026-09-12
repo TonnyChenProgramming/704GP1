@@ -1,17 +1,8 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<launchConfiguration type="org.eclipse.jdt.launching.localJavaApplication">
-    <listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_PATHS">
-        <listEntry value="/CoordinatorSystemJ/lib/sjc-2.2-13-g8ab684c-SNAPSHOT.jar"/>
-    </listAttribute>
-    <listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_TYPES">
-        <listEntry value="1"/>
-    </listAttribute>
-    <booleanAttribute key="org.eclipse.jdt.launching.ATTR_ATTR_USE_ARGFILE" value="false"/>
-    <booleanAttribute key="org.eclipse.jdt.launching.ATTR_SHOW_CODEDETAILS_IN_EXCEPTION_MESSAGES" value="true"/>
-    <booleanAttribute key="org.eclipse.jdt.launching.ATTR_USE_CLASSPATH_ONLY_JAR" value="false"/>
-    <booleanAttribute key="org.eclipse.jdt.launching.ATTR_USE_START_ON_FIRST_THREAD" value="true"/>
-    <stringAttribute key="org.eclipse.jdt.launching.MAIN_TYPE" value="com.systemj.compiler.JavaPrettyPrinter"/>
-    <stringAttribute key="org.eclipse.jdt.launching.MODULE_NAME" value="CoordinatorSystemJ"/>
-    <stringAttribute key="org.eclipse.jdt.launching.PROGRAM_ARGUMENTS" value="-d src --nojavac --silence sysj/*.sysj"/>
-    <stringAttribute key="org.eclipse.jdt.launching.PROJECT_ATTR" value="CoordinatorSystemJ"/>
+<?xml version="1.0" encoding="UTF-8"?>
+<launchConfiguration type="org.eclipse.ui.externaltools.ProgramLaunchConfigurationType">
+    <stringAttribute key="org.eclipse.ui.externaltools.ATTR_LOCATION" value="${env_var:WINDIR}\System32\WindowsPowerShell\v1.0\powershell.exe"/>
+    <stringAttribute key="org.eclipse.ui.externaltools.ATTR_TOOL_ARGUMENTS" value="-NoProfile -File &quot;${workspace_loc:/CoordinatorSystemJ/scripts/eclipse-build.ps1}&quot;"/>
+    <stringAttribute key="org.eclipse.ui.externaltools.ATTR_WORKING_DIRECTORY" value="${workspace_loc:/CoordinatorSystemJ}"/>
+    <stringAttribute key="org.eclipse.debug.core.ATTR_REFRESH_SCOPE" value="${workspace}"/>
+    <booleanAttribute key="org.eclipse.debug.core.ATTR_REFRESH_RECURSIVE" value="true"/>
 </launchConfiguration>

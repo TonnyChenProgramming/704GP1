@@ -1,97 +1,64 @@
-# CoordinatorSystemJ
+# CoordinatorSystemJ — integrated simulation
 
-A self-contained Eclipse project for compiling and running
-`sysj/coordinator.sysj` (the Production Coordinator, Coordinator_Spec.md) --
-structured the same way as the course's `COMPSYS704_Lab_2`/`COMPSYS704_Lab_3`
-projects, with the same SystemJ toolchain (`lib/`) copied in, so it should
-compile and run with no extra setup beyond Eclipse + a JDK.
+This is the repaired, runnable coordinator on the integration branch. It uses real
+SystemJ controller/plant pairs from the copied Tonny sources in this folder and
+Eric's finishing shims/devices in `../Eric`. It is no longer the all-stub smoke test.
 
-**Status as of 2026-09-12**: compiles up to (but not including) the point of
-importing/using a hand-written Java class. `coordinator.sysj` currently has
-**no** `import` statements and calls into nothing outside plain Java/JDK
-types -- see the Tracker note in its header comment for why, and the
-debugging log below for how that was isolated.
+Start with [COORDINATOR_INTEGRATION.md](COORDINATOR_INTEGRATION.md) for the protocol,
+changes/reasons, safety limitations and team handoff.
 
-## What's here (and what isn't)
+## Build and test
 
-| Path | Contents |
-|---|---|
-| `sysj/coordinator.sysj` | The Coordinator CD + stub Controller/RotaryTable/Safety/BatchManager-harness CDs (all in one file, like Eric's `finishing_contract.sysj`) |
-| `sysj/coordinator.xml` | Wiring config for `RunCoordinator.launch` |
-| `src/nz/ac/auckland/eabs/zhiyuan/coordinator/{TrackerPort,TwinView,StubTracker}.java` | **No longer imported by `coordinator.sysj`** (see below) -- kept for when Tracker integration is revisited |
-| `lib/` | SystemJ compiler + runtime + dependencies, copied from `COMPSYS704_Lab_3/lib` |
-| `BuildAll.launch`, `RunCoordinator.launch` | Eclipse run configurations (see below) |
+From the repository root, in PowerShell 7:
 
-**Not included** (deliberately, per the brief to keep this folder minimal):
-the full Java-side `Coordinator` state machine and its own acceptance test
-suite (already Java-verified separately), Eric's/Tonny's real controllers,
-and the IP persistence layer / `BatchManager` Java classes.
-
-## Debugging log: the compiler crash on custom Java classes
-
-First real `BuildAll` attempt (full file, all 10 CDs, `tracker.*` calls
-present) failed with no line number:
-
-```
-error: (other) java.lang.NullPointerException: Cannot invoke
-"java.util.ArrayList.iterator()" because "AST.ClassFile.sourcePath" is null
+```powershell
+pwsh -NoProfile -File Integration/Zhiyuan/scripts/test-coordinator.ps1
+# Add -Gui to show the read-only dashboard during the normal acceptance run.
 ```
 
-Isolated to a minimal repro (`import ...TrackerPort;`/`StubTracker;` + one CD
-using them). Two independent fix attempts, both reproduced the identical
-crash:
+The script checks Java/model tests, generates and compiles 23 CD classes, runs a
+22-CD normal integration (8 + 2 bottles), checks ten persisted records in another
+JVM, then runs the alternative LID-fault harness against the real device graph.
+It rejects compiler diagnostics even when the legacy compiler exits with code 0.
+All output goes under an ignored, unique `build/verification-<id>/`.
 
-1. Interface-typed field: `TrackerPort tracker = new StubTracker();`
-   declared once, called from multiple `||`-composed reactions.
-2. Concrete-class-typed, matching Eric's own proven cross-reaction pattern
-   exactly (`FinishingCycle signal cycleModel; emit cycleModel(new
-   FinishingCycle(...)); pause; ... (FinishingCycle)#cycleModel`, which
-   *does* compile in his `finishing_devices.sysj`) but substituting the
-   concrete `StubTracker` class for `FinishingCycle`.
+## Eclipse steps
 
-Since (2) mirrors known-working code almost verbatim and still crashed, the
-cause isn't the interface/class distinction or the cross-reaction sharing
-pattern -- something more specific to `TrackerPort.java`/`StubTracker.java`
-in this project, or possibly whether they've ever been compiled to `.class`
-here (unconfirmed). Not resolved yet. Current state removes the dependency
-entirely (`tracker.*` calls replaced with equivalent `System.out.println`s)
-so the state machine's own control flow can be verified independently.
+1. Import **both** existing projects from `Integration/Eric` (project name
+   **Eric**) and `Integration/Zhiyuan` (**CoordinatorSystemJ**). Do not import
+   the old root-level Eric project under the same name.
+2. Use a JDK with `java` and `javac` on PATH. PowerShell 7 is also required.
+   The Eclipse entry script uses `pwsh` on PATH, with the existing local bundled
+   runtime as a fallback on Eric's computer.
+3. Select **Run > External Tools > External Tools Configurations > Program >
+   BuildAll**. This is now an External Tools entry, not the old Java-application
+   compiler entry. If Eclipse still shows an old Java **BuildAll**, use the new
+   shared `BuildAll.launch` or remove only that obsolete launch configuration.
+4. Run it and wait for **COORDINATOR BUILD AND TEST PASSED**. A full clean build
+   can take several minutes with the course compiler. Before the first successful
+   run Eclipse may flag the missing `build/eclipse-generated` source folder;
+   the build script creates it after verification.
+5. Refresh both projects (**F5**), enable **Project > Build Automatically**, and
+   inspect **Problems** for errors. Generated SystemJ Java is in
+   `build/eclipse-generated`; edit `.sysj` source, not generated Java.
+6. Use **Run > Run Configurations > Java Application > RunCoordinator** to run
+   the verified normal batch harness again with the read-only GUI. It exits
+   after both test batches finish. Output archives use a fresh UUID filename.
+7. To test source changes, rerun **BuildAll** first. Eclipse's Java builder alone
+   does not translate SystemJ source.
 
-## Opening and running in Eclipse
+These launch files were configured and XML-checked; the automated verification
+uses the same compiler/runtime directly. Native Eclipse clicks are not part of
+the automated acceptance test.
 
-1. **File > Import... > General > Existing Projects into Workspace**, browse
-   to this `CoordinatorSystemJ` folder, finish. (Or just copy this whole
-   folder into your workspace directory and it should show up / can be
-   imported the same way.)
-2. Refresh the project (select it, press **F5**).
-3. **Run > Run Configurations...**, find **BuildAll** under Java
-   Application, click **Run**. This invokes the SystemJ compiler
-   (`com.systemj.compiler.JavaPrettyPrinter -d src --nojavac --silence
-   sysj/*.sysj`), which reads every `.sysj` file in `sysj/` and generates
-   one `.java` file per clock-domain directly into `src/` (top-level,
-   alongside the 3 hand-written files above, which it won't touch). Eclipse
-   auto-compiles the generated `.java` files as usual.
-4. Fix whatever compiler errors/warnings come up in `coordinator.sysj` --
-   this is expected on the first pass. Re-run **BuildAll** after each fix.
-5. Once it compiles clean, refresh (**F5**) again, then run **RunCoordinator**
-   (`com.systemj.SystemJRunner sysj/coordinator.xml`). Since every CD in
-   `coordinator.xml` lives in one `Local="true"` SubSystem (same process,
-   no networking), this single run configuration is enough -- unlike Lab 3's
-   Controller/Plant split, there's no second program to launch separately.
-6. `BatchManagerHarnessCD` (the smoke-test driver -- see `coordinator.sysj`'s
-   bottom section) activates one 2-bottle batch and prints
-   `COORDINATOR SYSTEMJ SMOKE CONTRACT PASSED` to the console once it drains
-   cleanly. If nothing prints, or it hangs, that's the next thing to debug.
+## Not yet the finished Group Project
 
-## After it compiles and runs
+The batch driver is a test harness, not the real POS. Tony must send the explicit
+eight-field activation and handle REJECTED/FAULT/DRAINED. The flat protocol has no
+active STOP/PERMIT/RESET handshake; the current HOLD is not an emergency stop.
+Tonny's rotary occupancy mask and independent fill measurements remain simulation
+limitations. See the handoff document before claiming full GP completion.
 
-Report back (or just fix forward) whatever the compiler/runtime surfaces --
-most likely candidates, in rough order of suspicion:
-- the `{branch}||{branch}` synchronous-join blocks used to wait on several
-  stations' channels at once (grounded in Lab 2 Exercise 6, but only tested
-  there with 2 branches + `await`, not `send`/`receive` pairs like here)
-- array/local-variable declarations inside a CD body (`String[]
-  rotaryOccupant = new String[6];` etc.) -- SystemJ extends Java so this
-  should work, but hasn't been verified for this exact shape
-- the `weak abort(safetyPermitLost){ while(...) { ... } }` wrapping a loop
-  containing nested `{}||{}` blocks and `receive` statements
+The previous compiler investigation is preserved in Git history (baseline
+`cb9ed9d`). Legacy `TrackerPort`, `TwinView`, and `StubTracker` sources are
+retained but are not used by this integrated runtime.

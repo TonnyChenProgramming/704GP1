@@ -3,6 +3,7 @@
 	<name>CoordinatorSystemJ</name>
 	<comment></comment>
 	<projects>
+		<project>Eric</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>
