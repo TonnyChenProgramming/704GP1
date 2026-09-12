@@ -7,49 +7,77 @@ Eric's finishing shims/devices in `../Eric`. It is no longer the all-stub smoke 
 Start with [COORDINATOR_INTEGRATION.md](COORDINATOR_INTEGRATION.md) for the protocol,
 changes/reasons, safety limitations and team handoff.
 
-## Build and test
-
-From the repository root, in PowerShell 7:
-
-```powershell
-pwsh -NoProfile -File Integration/Zhiyuan/scripts/test-coordinator.ps1
-# Add -Gui to show the read-only dashboard during the normal acceptance run.
-```
-
-The script checks Java/model tests, generates and compiles 23 CD classes, runs a
-22-CD normal integration (8 + 2 bottles), checks ten persisted records in another
-JVM, then runs the alternative LID-fault harness against the real device graph.
-It rejects compiler diagnostics even when the legacy compiler exits with code 0.
-All output goes under an ignored, unique `build/verification-<id>/`.
-
-## Eclipse steps
+## Pure Eclipse workflow — no PowerShell required
 
 1. Import **both** existing projects from `Integration/Eric` (project name
    **Eric**) and `Integration/Zhiyuan` (**CoordinatorSystemJ**). Do not import
    the old root-level Eric project under the same name.
-2. Use a JDK with `java` and `javac` on PATH. PowerShell 7 is also required.
-   The Eclipse entry script uses `pwsh` on PATH, with the existing local bundled
-   runtime as a fallback on Eric's computer.
-3. Select **Run > External Tools > External Tools Configurations > Program >
-   BuildAll**. This is now an External Tools entry, not the old Java-application
-   compiler entry. If Eclipse still shows an old Java **BuildAll**, use the new
-   shared `BuildAll.launch` or remove only that obsolete launch configuration.
-4. Run it and wait for **COORDINATOR BUILD AND TEST PASSED**. A full clean build
-   can take several minutes with the course compiler. Before the first successful
-   run Eclipse may flag the missing `build/eclipse-generated` source folder;
-   the build script creates it after verification.
-5. Refresh both projects (**F5**), enable **Project > Build Automatically**, and
-   inspect **Problems** for errors. Generated SystemJ Java is in
-   `build/eclipse-generated`; edit `.sysj` source, not generated Java.
-6. Use **Run > Run Configurations > Java Application > RunCoordinator** to run
-   the verified normal batch harness again with the read-only GUI. It exits
-   after both test batches finish. Output archives use a fresh UUID filename.
-7. To test source changes, rerun **BuildAll** first. Eclipse's Java builder alone
-   does not translate SystemJ source.
+2. Refresh both projects (**F5**), enable **Project > Build Automatically**, and
+   let Eclipse compile the hand-written Java, including the new build launcher.
+   The committed `generated-src` folder exists even before the first build, so
+   a clean clone has no missing generated-source-folder dependency. If an old
+   `build/eclipse-generated` source entry persists, close/reopen the project to
+   reload `.classpath`; do not add both generated folders.
+3. Select **Run > Run Configurations > Java Application > BuildAll**.
+   Under **Main**, verify project `CoordinatorSystemJ` and main class
+   `nz.ac.auckland.eabs.zhiyuan.tooling.EclipseSystemJBuild`.
+   Under **JRE**, use a full JDK (tested with JDK 26), not a runtime without the
+   Java compiler. This workflow does not require `pwsh`, `javac` on PATH or a
+   PowerShell execution-policy change.
+4. Click **Run**, then wait for **ECLIPSE SYSTEMJ BUILD PASSED**. This compiles
+   Java helpers first, invokes the course SystemJ compiler, compiles/checks all
+   23 generated CD classes, then publishes the generated Java. It can take a
+   few minutes. It does not automatically run the simulation.
+5. Press **F5** again and let Eclipse finish its Java build (or use **Project >
+   Build Project**). Check **Problems** for errors. Generated Java is in
+   `generated-src`; edit `.sysj` source, never generated Java.
+6. Select **Run > Run Configurations > Java Application > RunCoordinator**.
+   This opens the read-only GUI and runs the normal 8 + 2 bottle test batches.
+   The process/GUI exits when both finish. Archives use a fresh UUID filename.
+7. Use **CoordinatorTests** for the fast model tests. Use **RunCoordinatorFault**
+   for the real-device fault harness after building. Use **VerifyIntegration**
+   for a fresh build plus all model/runtime/archive/fault checks, still entirely
+   through Java; it finishes with **ECLIPSE SYSTEMJ BUILD AND TEST PASSED**.
 
-These launch files were configured and XML-checked; the automated verification
-uses the same compiler/runtime directly. Native Eclipse clicks are not part of
-the automated acceptance test.
+### If Eclipse still launches PowerShell
+
+Do not use **External Tools > Program > BuildAll** or the toolbar's previous-run
+shortcut. That is the obsolete script configuration cached in your workspace.
+Choose the new **Java Application > BuildAll** explicitly. You may delete only
+the obsolete **Program** launch entry; do not delete project/source files.
+
+If the new entry is not listed, refresh the project then right-click the shared
+`BuildAll.launch` and choose **Run As > BuildAll** if offered. Alternatively,
+create a Java Application configuration with the project/main class in step 3,
+working directory `${workspace_loc:/CoordinatorSystemJ}` and VM argument
+`-Xmx768m`.
+
+### Which action after an edit?
+
+| Change | Next action |
+| --- | --- |
+| `.sysj` controller/coordinator/plant | BuildAll, F5, Eclipse Java build, RunCoordinator |
+| Java helper / tracker / GUI only | Eclipse Java build, then RunCoordinator; run VerifyIntegration before sharing |
+| XML wiring only | Save, then RunCoordinator; referenced CDs must already be compiled |
+| Preparing a commit or teammate handoff | VerifyIntegration |
+
+BuildAll is a Java build launcher, not the production coordinator or a replacement
+runtime. It directly uses the JDK compiler API and starts only the Java SystemJ
+compiler processes. Per-build outputs/logs are under `build/eclipse-build-<id>`.
+It checks compiler diagnostics even when the course compiler exits with code 0.
+No Windows-wide settings are modified. The course compiler is still required;
+ordinary Eclipse Java Build alone does not translate `.sysj`.
+
+The exact Java entry point passed all compilation/model/runtime/archive/fault
+checks outside Eclipse. Launch XML was validated; native Eclipse clicks and the
+user's cached workspace configuration were not automated.
+
+## Optional command-line verification
+
+The existing `scripts/test-coordinator.ps1` remains an optional PowerShell 7
+verification route, not a dependency of the Eclipse workflow. It now publishes
+to the same `generated-src` directory. `scripts/eclipse-build.ps1` is retained
+only for old workspace configurations and is no longer referenced by BuildAll.
 
 ## Not yet the finished Group Project
 

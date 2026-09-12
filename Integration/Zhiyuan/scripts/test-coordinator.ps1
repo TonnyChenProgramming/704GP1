@@ -92,7 +92,7 @@ if (Test-Path -LiteralPath (Join-Path $run 'fault-workpieces.properties')) { thr
 [IO.File]::WriteAllText((Join-Path $run 'acceptance.log'), $unit + $output + $archiveCheck + $faultOutput)
 # Publish only VERIFIED generated Java for Eclipse's normal incremental builder.
 # No existing authored source is modified; this dedicated directory is ignored.
-$eclipseGenerated = Join-Path $root 'build\eclipse-generated'
+$eclipseGenerated = Join-Path $root 'generated-src'
 New-Item -ItemType Directory -Path $eclipseGenerated -Force | Out-Null
 foreach ($source in $generatedFiles) { Copy-Item -LiteralPath $source -Destination $eclipseGenerated -Force }
 Write-Host "COORDINATOR BUILD AND TEST PASSED. Evidence: $run"

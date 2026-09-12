@@ -2,7 +2,7 @@
 <classpath>
     <classpathentry kind="src" path="src"/>
     <classpathentry kind="src" path="tests"/>
-    <classpathentry kind="src" path="build/eclipse-generated"/>
+    <classpathentry kind="src" path="generated-src"/>
     <classpathentry kind="src" path="/Eric"/>
     <classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
     <classpathentry kind="lib" path="lib/asm-5.0.4.jar"/>

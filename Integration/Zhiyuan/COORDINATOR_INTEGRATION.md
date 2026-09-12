@@ -14,12 +14,17 @@ Verified locally with JDK 26 and the bundled course SystemJ compiler/runtime:
 Local evidence: `build/verification-54b41b9d08814c1bbcd3d32582db831b/acceptance.log`.
 This is simulation acceptance, not completed POS, full safety, or hardware validation.
 
+The pure Java/Eclipse launcher was subsequently verified with the same 544 model
+checks, 72 archive checks and both runtime scenarios. Logs are in
+`build/eclipse-build-10767836659479273593/` (`model.log`, `normal.log`,
+`archive.log`, `fault.log`). No PowerShell was invoked in this verification.
+
 ## What changed and why
 
 | Area | Previous issue | Current design |
 | --- | --- | --- |
 | Compilation | Large nested parallel/channel/weak-abort structure exhausted the course compiler heap. It sometimes returned exit code 0 on an error. | Flat per-station SystemJ I/O reactions; a private Java state model; fresh output directories, bounded child processes, diagnostics and generated-class checks. |
-| Java compatibility | Modern JDK properties missing; old class reader also silently exits on a helper class containing lambda bytecode. | Compile helpers first with `--release 8`, use the existing compatibility launcher, avoid lambdas in the directly imported helper. |
+| Java compatibility | Modern JDK properties missing; old class reader also silently exits on a helper class containing lambda bytecode. | Compile helpers first with Java 8 bytecode, use the existing compatibility launcher, avoid lambdas in the directly imported helper. |
 | Handshake | START was sent before consuming READY; post-ACK READY was left pending. | Consume READY, send START, validate BUSY and DONE/FAULT, ACK only valid DONE, then consume READY again. |
 | Correlation | Prefix checks could accept a stale/foreign result. | Match station, job ID and workpiece ID; check evidence before updating a twin. |
 | Recipe / label | Filler START omitted dose targets; labeller START omitted payload. | Explicit two-integer dose targets and restricted `workpieceId:batchId` label. |
@@ -32,7 +37,18 @@ This is simulation acceptance, not completed POS, full safety, or hardware valid
 
 ## Run from a clean checkout
 
-Requirements: Java/Javac on PATH and PowerShell 7. The course jars already in `Integration/Zhiyuan/lib` are the default. Nothing is downloaded.
+Preferred workflow: import both `Eric` and `CoordinatorSystemJ`, then use **Run >
+Run Configurations > Java Application > BuildAll**. Refresh/build Java, then run
+**RunCoordinator**. **VerifyIntegration** performs the full build and tests. A
+full JDK is required, but PowerShell and PATH tools are not. See README for exact
+steps and how to avoid the obsolete External Tools configuration.
+
+The Java launcher publishes verified generated Java into `generated-src`.
+The source folder is present on a fresh clone; generated Java files are ignored.
+Separate build outputs and logs go into `build/eclipse-build-<id>`.
+
+Optional command-line workflow below requires Java/Javac on PATH and PowerShell 7.
+The course jars already in `Integration/Zhiyuan/lib` are the default. Nothing is downloaded.
 
 From the repository root:
 
@@ -106,5 +122,7 @@ No automatic recovery from uncertain indexing, faulted workpieces, or failed per
 - `sysj/coordinator.xml`: 22-CD simulation wiring.
 - `tests/IntegratedCoordinatorTest.java`: deterministic contract tests and separate-process archive checks.
 - `scripts/test-coordinator.ps1`: reproducible, fail-checked clean build and acceptance run.
+- `src/nz/ac/auckland/eabs/zhiyuan/tooling/EclipseSystemJBuild.java`: pure Java build/verification launcher; `BuildAll.launch` does not invoke a shell.
+- `CoordinatorTests.launch`, `RunCoordinatorFault.launch`, `VerifyIntegration.launch`: separate fast model, fault runtime and full acceptance entry points.
 
 The old `TrackerPort`, `TwinView` and `StubTracker` remain for source history/other adapters; they are not used by this runtime.

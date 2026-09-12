@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launchConfiguration type="org.eclipse.jdt.launching.localJavaApplication">
     <stringAttribute key="org.eclipse.jdt.launching.PROJECT_ATTR" value="CoordinatorSystemJ"/>
-    <stringAttribute key="org.eclipse.jdt.launching.MAIN_TYPE" value="nz.ac.auckland.eabs.zhiyuan.tooling.EclipseSystemJBuild"/>
+    <stringAttribute key="org.eclipse.jdt.launching.MAIN_TYPE" value="nz.ac.auckland.eabs.zhiyuan.coordinator.IntegratedCoordinatorTest"/>
     <stringAttribute key="org.eclipse.jdt.launching.PROGRAM_ARGUMENTS" value=""/>
-    <stringAttribute key="org.eclipse.jdt.launching.VM_ARGUMENTS" value="-Xmx768m"/>
+    <stringAttribute key="org.eclipse.jdt.launching.VM_ARGUMENTS" value="-Djava.awt.headless=true"/>
     <stringAttribute key="org.eclipse.jdt.launching.WORKING_DIRECTORY" value="${workspace_loc:/CoordinatorSystemJ}"/>
     <booleanAttribute key="org.eclipse.jdt.launching.ATTR_USE_CLASSPATH_ONLY_JAR" value="false"/>
     <stringAttribute key="org.eclipse.debug.core.ATTR_REFRESH_SCOPE" value="${workspace}"/>
