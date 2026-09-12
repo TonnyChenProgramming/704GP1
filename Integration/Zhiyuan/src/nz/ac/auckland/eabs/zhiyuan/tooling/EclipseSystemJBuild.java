@@ -7,6 +7,7 @@ import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 import java.util.stream.Stream;
 import javax.tools.*;
 
@@ -62,6 +63,7 @@ public final class EclipseSystemJBuild {
             public void run() { Process child = activeChild; if (child != null && child.isAlive()) child.destroyForcibly(); }
         }, "systemj-build-child-cleanup"));
         EclipseSystemJBuild build = new EclipseSystemJBuild(project);
+        if (tests) build.checkRuntimePorts();
         build.compile();
         if (tests) build.test();
         build.publishSources();
@@ -71,6 +73,11 @@ public final class EclipseSystemJBuild {
     }
 
     private void compile() throws Exception {
+        // javac accepts explicit files in the wrong directory; Eclipse's Java
+        // project builder does not. Check both contracts before reporting success.
+        validateSourceLayout(eric.resolve("src/main/java"));
+        validateSourceLayout(root.resolve("src"));
+        validateSourceLayout(root.resolve("tests"));
         // Compile source helpers independently of Eclipse's bytecode settings or stale bin/.
         List<Path> helpers = files(eric.resolve("src/main/java"), ".java", true);
         helpers.addAll(files(root.resolve("src"), ".java", true));
@@ -139,6 +146,7 @@ public final class EclipseSystemJBuild {
     }
 
     private void test() throws Exception {
+        checkRuntimePorts();
         System.out.println("[Tests] Model, real-device integration, archive and fault hold");
         require(child("model", 30, "-Djava.awt.headless=true", "-cp", classpath, TEST), "COORDINATOR MODEL TESTS PASSED");
         Path archive = run.resolve("workpieces.properties");
@@ -178,5 +186,33 @@ public final class EclipseSystemJBuild {
 
     private static void require(String output, String marker) throws IOException {
         if (!output.contains(marker)) throw new IOException("Missing test completion marker: " + marker);
+    }
+
+    private void checkRuntimePorts() throws IOException {
+        List<java.net.ServerSocket> checks = new ArrayList<java.net.ServerSocket>();
+        try {
+            for (int port : new int[]{30101, 30102, 30103}) {
+                java.net.ServerSocket socket = new java.net.ServerSocket();
+                checks.add(socket);
+                socket.setReuseAddress(false);
+                try { socket.bind(new java.net.InetSocketAddress("127.0.0.1", port)); }
+                catch (IOException occupied) {
+                    throw new IOException("SystemJ port " + port + " is unavailable. Terminate the previous RunCoordinator/RunCoordinatorFault in Eclipse before VerifyIntegration; do not run the simulations together.", occupied);
+                }
+            }
+        } finally { for (java.net.ServerSocket socket : checks) socket.close(); }
+    }
+
+    public static void validateSourceLayout(Path sourceRoot) throws IOException {
+        Pattern declaration = Pattern.compile("(?m)^\\s*package\\s+([A-Za-z_$][\\w.$]*)\\s*;");
+        for (Path file : files(sourceRoot, ".java", true)) {
+            String expected = sourceRoot.relativize(file.getParent()).toString().replace(File.separatorChar, '.');
+            Matcher match = declaration.matcher(new String(Files.readAllBytes(file), StandardCharsets.UTF_8));
+            String actual = match.find() ? match.group(1) : "";
+            if (!expected.equals(actual)) {
+                throw new IOException("Eclipse package/source-folder mismatch: " + file
+                    + " declares '" + actual + "' but its directory requires '" + expected + "'. Move the file under its package directory.");
+            }
+        }
     }
 }

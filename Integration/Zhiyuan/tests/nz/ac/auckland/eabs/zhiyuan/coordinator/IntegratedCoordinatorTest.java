@@ -7,7 +7,7 @@ import nz.ac.auckland.eabs.eric.tracking.*;
 import nz.ac.auckland.eabs.eric.persistence.*;
 import nz.ac.auckland.eabs.eric.systemj.FinishingWire;
 
-/** Dependency-free contract tests; distinct from the real SystemJ integration run. */
+/** Dependency-free contract tests, located under the Eclipse package directory. */
 public final class IntegratedCoordinatorTest {
     public static void finishRun() { System.exit(0); }
     private static int checks;

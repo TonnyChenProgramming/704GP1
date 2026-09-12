@@ -52,6 +52,25 @@ create a Java Application configuration with the project/main class in step 3,
 working directory `${workspace_loc:/CoordinatorSystemJ}` and VM argument
 `-Xmx768m`.
 
+### If Eclipse reports `declared package` / `IntegratedCoordinator cannot be resolved`
+
+The coordinator test must be at
+`tests/nz/ac/auckland/eabs/zhiyuan/coordinator/IntegratedCoordinatorTest.java`,
+not directly under `tests`. Eclipse checks the declared package against the
+directory below each source root; javac given explicit files may not catch this.
+BuildAll now rejects this layout mismatch before compilation.
+
+After pulling the layout fix: terminate any old simulation, refresh **both**
+projects with **F5**, then **Project > Clean** for Eric and CoordinatorSystemJ.
+Let the automatic Java build finish before running again. Never choose to launch
+despite compile errors: Eclipse can emit problem classes that run partly and then
+throw `Unresolved compilation problem` even after a test prints its PASS message.
+
+Only one simulation may use ports 30101–30103 at a time. If a failed launch stays
+alive, select that Console and press **Terminate** (red square). VerifyIntegration
+now checks these ports first and reports a clear error rather than waiting for
+an unrelated rotary-table timeout. BuildAll without tests does not need the ports.
+
 ### Which action after an edit?
 
 | Change | Next action |

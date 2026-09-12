@@ -47,7 +47,7 @@ function Invoke-Checked([string]$Program, [string[]]$Arguments, [int]$TimeoutMs 
 
 $javaSources = @(Get-ChildItem (Join-Path $eric 'src\main\java') -Recurse -Filter '*.java' -File | Select-Object -ExpandProperty FullName)
 $javaSources += Join-Path $root 'src\nz\ac\auckland\eabs\zhiyuan\coordinator\IntegratedCoordinator.java'
-$javaSources += @(Get-ChildItem (Join-Path $root 'tests') -Filter '*.java' -File | Select-Object -ExpandProperty FullName)
+$javaSources += @(Get-ChildItem (Join-Path $root 'tests') -Recurse -Filter '*.java' -File | Select-Object -ExpandProperty FullName)
 Write-Host (Invoke-Checked 'javac' (@('--release', '8', '-encoding', 'UTF-8', '-d', $classes) + $javaSources))
 $unit = Invoke-Checked 'java' @('-Djava.awt.headless=true', '-cp', $cp, 'nz.ac.auckland.eabs.zhiyuan.coordinator.IntegratedCoordinatorTest')
 if (-not $unit.Contains('COORDINATOR MODEL TESTS PASSED')) { throw "Unit test marker missing: $unit" }

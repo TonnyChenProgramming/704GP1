@@ -19,6 +19,16 @@ checks, 72 archive checks and both runtime scenarios. Logs are in
 `build/eclipse-build-10767836659479273593/` (`model.log`, `normal.log`,
 `archive.log`, `fault.log`). No PowerShell was invoked in this verification.
 
+Eclipse-specific follow-up: the test originally declared a package while sitting
+at the tests source root. It is now under its matching package directory, and the
+Java builder checks package/directory consistency. All sources were also compiled
+with the user's installed Eclipse JDT 3.46 compiler, then the generated classes
+ran under Eclipse's bundled Java 21. The normal 8+2 run exited with code 0, and
+544 model checks plus 72 archive checks passed. Output was isolated under
+`build/ecj-check-b07d551d6ef34eed94bbbee8c9ce3d00/`; no live Eclipse bin files were overwritten.
+The complete Java build, normal runtime, archive and fault regression subsequently
+passed again in `build/eclipse-build-16011211432191684307/`.
+
 ## What changed and why
 
 | Area | Previous issue | Current design |
@@ -120,7 +130,7 @@ No automatic recovery from uncertain indexing, faulted workpieces, or failed per
 - `src/nz/ac/auckland/eabs/zhiyuan/coordinator/IntegratedCoordinator.java`: phase policy, strict frame checks, occupancy, tracker and read-only view.
 - `sysj/coordinator_harness.sysj`: test-only batch driver.
 - `sysj/coordinator.xml`: 22-CD simulation wiring.
-- `tests/IntegratedCoordinatorTest.java`: deterministic contract tests and separate-process archive checks.
+- `tests/nz/ac/auckland/eabs/zhiyuan/coordinator/IntegratedCoordinatorTest.java`: deterministic contract tests and separate-process archive checks.
 - `scripts/test-coordinator.ps1`: reproducible, fail-checked clean build and acceptance run.
 - `src/nz/ac/auckland/eabs/zhiyuan/tooling/EclipseSystemJBuild.java`: pure Java build/verification launcher; `BuildAll.launch` does not invoke a shell.
 - `CoordinatorTests.launch`, `RunCoordinatorFault.launch`, `VerifyIntegration.launch`: separate fast model, fault runtime and full acceptance entry points.
