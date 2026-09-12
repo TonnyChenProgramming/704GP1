@@ -106,9 +106,18 @@ CoordinatorCD(
         while(true){
             receive activateBatchIn;
             String msg = (String)#activateBatchIn;
-            String[] parts = msg.split("\\|");
-            batchId = parts[1]; recipeId = parts[2]; productId = parts[3];
-            totalQuantity = Integer.parseInt(parts[4]);
+            // Manual indexOf/substring parsing, not .split() -- .split() returning
+            // an array assigned straight into a local (`Type[] x = expr;`) crashes
+            // this SystemJ compiler's field-hoisting step (emits an invalid `..`
+            // field type). Tonny's real controllers already parse this way.
+            int msgP1 = msg.indexOf("|");
+            int msgP2 = msg.indexOf("|", msgP1 + 1);
+            int msgP3 = msg.indexOf("|", msgP2 + 1);
+            int msgP4 = msg.indexOf("|", msgP3 + 1);
+            batchId = msg.substring(msgP1 + 1, msgP2);
+            recipeId = msg.substring(msgP2 + 1, msgP3);
+            productId = msg.substring(msgP3 + 1, msgP4);
+            totalQuantity = Integer.parseInt(msg.substring(msgP4 + 1));
             admitted = 0; completed = 0; nextSeq = 0;
             for (int p = 1; p <= 5; p++){ rotaryOccupant[p] = null; }
             labellerOccupant = null; unloaderOccupant = null;
@@ -376,9 +385,13 @@ LoaderControllerCD(
     while(true){
         receive jobIn;
         job = (String)#jobIn;
-        String[] parts = job.split("\\|");
-        String jobId = parts[1];
-        String wp = parts[2];
+        // Manual indexOf/substring, not .split() -- see Reaction 1's comment above
+        // for why (.split() into a local array crashes this compiler's codegen).
+        int jobP1 = job.indexOf("|");
+        int jobP2 = job.indexOf("|", jobP1 + 1);
+        int jobP3 = job.indexOf("|", jobP2 + 1);
+        String jobId = job.substring(jobP1 + 1, jobP2);
+        String wp = job.substring(jobP2 + 1, jobP3);
         send reportOut("BUSY|" + jobId + "|" + wp + "|LOADER");
         pause;
         send reportOut("DONE|" + jobId + "|" + wp + "|LOADER|OK|bottlePlaced=true");
@@ -397,9 +410,13 @@ FillerControllerCD(
     while(true){
         receive jobIn;
         job = (String)#jobIn;
-        String[] parts = job.split("\\|");
-        String jobId = parts[1];
-        String wp = parts[2];
+        // Manual indexOf/substring, not .split() -- see Reaction 1's comment above
+        // for why (.split() into a local array crashes this compiler's codegen).
+        int jobP1 = job.indexOf("|");
+        int jobP2 = job.indexOf("|", jobP1 + 1);
+        int jobP3 = job.indexOf("|", jobP2 + 1);
+        String jobId = job.substring(jobP1 + 1, jobP2);
+        String wp = job.substring(jobP2 + 1, jobP3);
         send reportOut("BUSY|" + jobId + "|" + wp + "|FILLER");
         pause;
         send reportOut("DONE|" + jobId + "|" + wp + "|FILLER|OK|liquidA=0.5|liquidB=0.5");
@@ -418,9 +435,13 @@ LidControllerCD(
     while(true){
         receive jobIn;
         job = (String)#jobIn;
-        String[] parts = job.split("\\|");
-        String jobId = parts[1];
-        String wp = parts[2];
+        // Manual indexOf/substring, not .split() -- see Reaction 1's comment above
+        // for why (.split() into a local array crashes this compiler's codegen).
+        int jobP1 = job.indexOf("|");
+        int jobP2 = job.indexOf("|", jobP1 + 1);
+        int jobP3 = job.indexOf("|", jobP2 + 1);
+        String jobId = job.substring(jobP1 + 1, jobP2);
+        String wp = job.substring(jobP2 + 1, jobP3);
         send reportOut("BUSY|" + jobId + "|" + wp + "|LID");
         pause;
         send reportOut("DONE|" + jobId + "|" + wp + "|LID|OK|lidPresent=true");
@@ -439,9 +460,13 @@ CapperControllerCD(
     while(true){
         receive jobIn;
         job = (String)#jobIn;
-        String[] parts = job.split("\\|");
-        String jobId = parts[1];
-        String wp = parts[2];
+        // Manual indexOf/substring, not .split() -- see Reaction 1's comment above
+        // for why (.split() into a local array crashes this compiler's codegen).
+        int jobP1 = job.indexOf("|");
+        int jobP2 = job.indexOf("|", jobP1 + 1);
+        int jobP3 = job.indexOf("|", jobP2 + 1);
+        String jobId = job.substring(jobP1 + 1, jobP2);
+        String wp = job.substring(jobP2 + 1, jobP3);
         send reportOut("BUSY|" + jobId + "|" + wp + "|CAPPER");
         pause;
         send reportOut("DONE|" + jobId + "|" + wp + "|CAPPER|OK|capSecured=true");
@@ -460,9 +485,13 @@ LabellerControllerCD(
     while(true){
         receive jobIn;
         job = (String)#jobIn;
-        String[] parts = job.split("\\|");
-        String jobId = parts[1];
-        String wp = parts[2];
+        // Manual indexOf/substring, not .split() -- see Reaction 1's comment above
+        // for why (.split() into a local array crashes this compiler's codegen).
+        int jobP1 = job.indexOf("|");
+        int jobP2 = job.indexOf("|", jobP1 + 1);
+        int jobP3 = job.indexOf("|", jobP2 + 1);
+        String jobId = job.substring(jobP1 + 1, jobP2);
+        String wp = job.substring(jobP2 + 1, jobP3);
         send reportOut("BUSY|" + jobId + "|" + wp + "|LABELLER");
         pause;
         send reportOut("DONE|" + jobId + "|" + wp + "|LABELLER|OK|labelApplied=true");
@@ -481,9 +510,13 @@ UnloaderControllerCD(
     while(true){
         receive jobIn;
         job = (String)#jobIn;
-        String[] parts = job.split("\\|");
-        String jobId = parts[1];
-        String wp = parts[2];
+        // Manual indexOf/substring, not .split() -- see Reaction 1's comment above
+        // for why (.split() into a local array crashes this compiler's codegen).
+        int jobP1 = job.indexOf("|");
+        int jobP2 = job.indexOf("|", jobP1 + 1);
+        int jobP3 = job.indexOf("|", jobP2 + 1);
+        String jobId = job.substring(jobP1 + 1, jobP2);
+        String wp = job.substring(jobP2 + 1, jobP3);
         send reportOut("BUSY|" + jobId + "|" + wp + "|UNLOADER");
         pause;
         send reportOut("DONE|" + jobId + "|" + wp + "|UNLOADER|OK|bottleCollected=true");
