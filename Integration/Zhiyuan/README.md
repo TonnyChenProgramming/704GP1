@@ -6,11 +6,11 @@ structured the same way as the course's `COMPSYS704_Lab_2`/`COMPSYS704_Lab_3`
 projects, with the same SystemJ toolchain (`lib/`) copied in, so it should
 compile and run with no extra setup beyond Eclipse + a JDK.
 
-This file has **never been run through the SystemJ compiler** -- it was
-written on a machine without the toolchain, using syntax grounded in
-Lab 2/3's own compiled examples and Eric's delivered `finishing_contract.sysj`,
-but never actually compiled. That's the point of this project: compile it
-here and fix whatever surfaces.
+**Status as of 2026-09-12**: compiles up to (but not including) the point of
+importing/using a hand-written Java class. `coordinator.sysj` currently has
+**no** `import` statements and calls into nothing outside plain Java/JDK
+types -- see the Tracker note in its header comment for why, and the
+debugging log below for how that was isolated.
 
 ## What's here (and what isn't)
 
@@ -18,16 +18,44 @@ here and fix whatever surfaces.
 |---|---|
 | `sysj/coordinator.sysj` | The Coordinator CD + stub Controller/RotaryTable/Safety/BatchManager-harness CDs (all in one file, like Eric's `finishing_contract.sysj`) |
 | `sysj/coordinator.xml` | Wiring config for `RunCoordinator.launch` |
-| `src/nz/ac/auckland/eabs/zhiyuan/coordinator/{TrackerPort,TwinView,StubTracker}.java` | The only 3 plain-Java files `coordinator.sysj` actually imports |
+| `src/nz/ac/auckland/eabs/zhiyuan/coordinator/{TrackerPort,TwinView,StubTracker}.java` | **No longer imported by `coordinator.sysj`** (see below) -- kept for when Tracker integration is revisited |
 | `lib/` | SystemJ compiler + runtime + dependencies, copied from `COMPSYS704_Lab_3/lib` |
 | `BuildAll.launch`, `RunCoordinator.launch` | Eclipse run configurations (see below) |
 
 **Not included** (deliberately, per the brief to keep this folder minimal):
 the full Java-side `Coordinator` state machine and its own acceptance test
 suite (already Java-verified separately), Eric's/Tonny's real controllers,
-and the IP persistence layer / `BatchManager` Java classes. `coordinator.sysj`
-doesn't call into any of those -- see the file's header comment for exactly
-what it does depend on and why.
+and the IP persistence layer / `BatchManager` Java classes.
+
+## Debugging log: the compiler crash on custom Java classes
+
+First real `BuildAll` attempt (full file, all 10 CDs, `tracker.*` calls
+present) failed with no line number:
+
+```
+error: (other) java.lang.NullPointerException: Cannot invoke
+"java.util.ArrayList.iterator()" because "AST.ClassFile.sourcePath" is null
+```
+
+Isolated to a minimal repro (`import ...TrackerPort;`/`StubTracker;` + one CD
+using them). Two independent fix attempts, both reproduced the identical
+crash:
+
+1. Interface-typed field: `TrackerPort tracker = new StubTracker();`
+   declared once, called from multiple `||`-composed reactions.
+2. Concrete-class-typed, matching Eric's own proven cross-reaction pattern
+   exactly (`FinishingCycle signal cycleModel; emit cycleModel(new
+   FinishingCycle(...)); pause; ... (FinishingCycle)#cycleModel`, which
+   *does* compile in his `finishing_devices.sysj`) but substituting the
+   concrete `StubTracker` class for `FinishingCycle`.
+
+Since (2) mirrors known-working code almost verbatim and still crashed, the
+cause isn't the interface/class distinction or the cross-reaction sharing
+pattern -- something more specific to `TrackerPort.java`/`StubTracker.java`
+in this project, or possibly whether they've ever been compiled to `.class`
+here (unconfirmed). Not resolved yet. Current state removes the dependency
+entirely (`tracker.*` calls replaced with equivalent `System.out.println`s)
+so the state machine's own control flow can be verified independently.
 
 ## Opening and running in Eclipse
 

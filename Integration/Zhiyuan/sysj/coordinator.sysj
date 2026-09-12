@@ -4,9 +4,9 @@
  *
  * This project (CoordinatorSystemJ/) is a stripped-down, compiler-ready
  * companion to the main ip-persistence/704GP1/Zhiyuan/ module: it carries
- * only this .sysj file, its XML wiring, and the 3 plain-Java classes it
- * actually imports (TrackerPort/TwinView/StubTracker). The full Java-side
- * implementation this file was translated from --
+ * only this .sysj file and its XML wiring (no plain-Java classes are
+ * imported here any more -- see the Tracker note below for why). The full
+ * Java-side implementation this file was translated from --
  * nz.ac.auckland.eabs.zhiyuan.coordinator.Coordinator, whose 5 acceptance
  * scenarios pass against stub controllers, see
  * 704GP1/Zhiyuan/src/test/.../CoordinatorAcceptanceTest.java -- lives in
@@ -42,23 +42,32 @@
  * CoordinatorLink.activateBatch() Java methods; that bridge is not written
  * here (a follow-up, not Coordinator's own concern).
  *
- * The Tracker is called as a plain Java object held by the Coordinator CD,
- * exactly as GP report Figure 3 pairs a Controller CD with its Model, and
- * as Lab 3's plant.sysj instantiates its GUI directly (`new Thread(new
- * GUI()).start();`) rather than over a channel -- matching
- * Coordinator_Spec.md Section 4 ("Coordinator calls these [Tracker
- * methods]"). It is boundary-compliant per TrackerPort.java's Javadoc --
- * see that file and Tracker_Change_Request_for_Eric.md for the assumption
- * this makes about Eric's pending WorkpieceTracker update. StubTracker is
- * used as the placeholder implementation here, exactly as Eric's own
- * Harness/Plant CDs are placeholders standing in for the shared Coordinator
- * during his isolated testing -- swap it for a real Eric-backed adapter
- * once he updates WorkpieceTracker.
+ * TRACKER CALLS ARE TEMPORARILY REMOVED (2026-09-12). The original design
+ * called TrackerPort/StubTracker as a plain Java object held by the
+ * Coordinator CD (GP report Figure 3's Controller/Model pairing). That
+ * crashes this SystemJ compiler: `import
+ * nz.ac.auckland.eabs.zhiyuan.coordinator.TrackerPort;` plus using it as a
+ * field/signal type and calling its methods reproducibly triggers
+ *   java.lang.NullPointerException: Cannot invoke "java.util.ArrayList.iterator()"
+ *   because "AST.ClassFile.sourcePath" is null
+ * in an isolated minimal repro -- tried both an interface-typed field
+ * (`TrackerPort tracker = new StubTracker();`) and, matching Eric's own
+ * proven `FinishingCycle signal cycleModel; emit cycleModel(new
+ * FinishingCycle(...)); pause; ... (FinishingCycle)#cycleModel` pattern
+ * exactly but with the concrete `StubTracker` class instead of the
+ * interface, and got the identical crash both times. Root cause not
+ * understood yet (possibly specific to how/whether TrackerPort.java and
+ * StubTracker.java have ever been compiled to .class in this project, or
+ * something else about those two files specifically -- not yet isolated
+ * further). Every `tracker.*` call below is replaced with a
+ * `System.out.println(...)` of the same information, so the state
+ * machine's logic and control flow are unchanged and still observable on
+ * the console. The real Tracker integration is unaffected elsewhere: it
+ * stays verified in the Java-only nz.ac.auckland.eabs.zhiyuan.coordinator
+ * package (704GP1/Zhiyuan/src/, a separate project from this one) via
+ * CoordinatorAcceptanceTest.java, which never went through this compiler.
+ * Revisit once this file's control flow alone is confirmed to compile/run.
  */
-
-import nz.ac.auckland.eabs.zhiyuan.coordinator.TrackerPort;
-import nz.ac.auckland.eabs.zhiyuan.coordinator.StubTracker;
-import java.util.Arrays;
 
 CoordinatorCD(
     input  String channel activateBatchIn;   // "ACTIVATE|batchId|recipeId|productId|totalQuantity"
@@ -86,10 +95,6 @@ CoordinatorCD(
     String unloaderOccupant = null;
     String batchId = null, recipeId = null, productId = null;
     int totalQuantity = 0, admitted = 0, completed = 0, nextSeq = 0;
-    String[] requiredOperations = {"FILLER", "LID", "CAPPER", "LABELLER", "UNLOADER"};
-
-    // Placeholder Tracker -- see file header note.
-    TrackerPort tracker = new StubTracker();
 
     // Internal local signals (Coordinator_SystemI_Spec.md Section 3.2: reactions
     // communicate via internal local signals, not channels -- channels are for
@@ -136,13 +141,13 @@ CoordinatorCD(
                         receive loaderReportIn; // DONE or FAULT
                         String rep = (String)#loaderReportIn;
                         if (rep.startsWith("DONE")){
-                            tracker.createTwin(wp, batchId, Arrays.asList(requiredOperations));
+                            System.out.println("TRACKER createTwin " + wp + " batch=" + batchId);
                             rotaryOccupant[1] = wp;
-                            tracker.confirmLocation(wp, "ROTARY_P1");
+                            System.out.println("TRACKER confirmLocation " + wp + " ROTARY_P1");
                             send loaderAckOut("ACK|" + jobId + "|" + wp);
                             admitted++;
                         } else {
-                            tracker.setStatus(wp, "FAULT");
+                            System.out.println("TRACKER setStatus " + wp + " FAULT");
                         }
                     }
 
@@ -166,10 +171,10 @@ CoordinatorCD(
                             receive fillerReportIn;
                             String rep = (String)#fillerReportIn;
                             if (rep.startsWith("DONE")){
-                                tracker.confirmOperation(wp, "FILLER", null);
+                                System.out.println("TRACKER confirmOperation " + wp + " FILLER");
                                 send fillerAckOut("ACK|" + jobId + "|" + wp);
                             } else {
-                                tracker.setStatus(wp, "FAULT");
+                                System.out.println("TRACKER setStatus " + wp + " FAULT");
                                 fillerFaulted = true;
                             }
                         }
@@ -184,10 +189,10 @@ CoordinatorCD(
                             receive lidReportIn;
                             String rep = (String)#lidReportIn;
                             if (rep.startsWith("DONE")){
-                                tracker.confirmOperation(wp, "LID", null);
+                                System.out.println("TRACKER confirmOperation " + wp + " LID");
                                 send lidAckOut("ACK|" + jobId + "|" + wp);
                             } else {
-                                tracker.setStatus(wp, "FAULT");
+                                System.out.println("TRACKER setStatus " + wp + " FAULT");
                                 lidFaulted = true;
                             }
                         }
@@ -202,10 +207,10 @@ CoordinatorCD(
                             receive capperReportIn;
                             String rep = (String)#capperReportIn;
                             if (rep.startsWith("DONE")){
-                                tracker.confirmOperation(wp, "CAPPER", null);
+                                System.out.println("TRACKER confirmOperation " + wp + " CAPPER");
                                 send capperAckOut("ACK|" + jobId + "|" + wp);
                             } else {
-                                tracker.setStatus(wp, "FAULT");
+                                System.out.println("TRACKER setStatus " + wp + " FAULT");
                                 capperFaulted = true;
                             }
                         }
@@ -220,10 +225,10 @@ CoordinatorCD(
                             receive labellerReportIn;
                             String rep = (String)#labellerReportIn;
                             if (rep.startsWith("DONE")){
-                                tracker.confirmOperation(wp, "LABELLER", null);
+                                System.out.println("TRACKER confirmOperation " + wp + " LABELLER");
                                 send labellerAckOut("ACK|" + jobId + "|" + wp);
                             } else {
-                                tracker.setStatus(wp, "FAULT");
+                                System.out.println("TRACKER setStatus " + wp + " FAULT");
                                 labellerFaulted = true;
                             }
                         }
@@ -238,10 +243,10 @@ CoordinatorCD(
                             receive unloaderReportIn;
                             String rep = (String)#unloaderReportIn;
                             if (rep.startsWith("DONE")){
-                                tracker.confirmOperation(wp, "UNLOADER", null);
+                                System.out.println("TRACKER confirmOperation " + wp + " UNLOADER");
                                 send unloaderAckOut("ACK|" + jobId + "|" + wp);
                             } else {
-                                tracker.setStatus(wp, "FAULT");
+                                System.out.println("TRACKER setStatus " + wp + " FAULT");
                                 unloaderFaulted = true;
                             }
                         }
@@ -268,25 +273,25 @@ CoordinatorCD(
                             // Downstream completions free slots first, so a same-cycle handoff
                             // from the table can use them (same ordering as Coordinator.java).
                             if (unloaderOccupant != null){
-                                tracker.confirmLocation(unloaderOccupant, "OUTPUT_COLLECTION");
+                                System.out.println("TRACKER confirmLocation " + unloaderOccupant + " OUTPUT_COLLECTION");
                                 completed++;
                                 unloaderOccupant = null;
                             }
                             if (labellerOccupant != null && unloaderOccupant == null){
                                 unloaderOccupant = labellerOccupant;
-                                tracker.confirmLocation(unloaderOccupant, "UNLOADER");
+                                System.out.println("TRACKER confirmLocation " + unloaderOccupant + " UNLOADER");
                                 labellerOccupant = null;
                             }
                             if (rotaryOccupant[5] != null && labellerOccupant == null){
                                 labellerOccupant = rotaryOccupant[5];
-                                tracker.confirmLocation(labellerOccupant, "LABELLER");
+                                System.out.println("TRACKER confirmLocation " + labellerOccupant + " LABELLER");
                                 rotaryOccupant[5] = null;
                             }
                             for (int p = 4; p >= 1; p--){
                                 if (rotaryOccupant[p] != null && rotaryOccupant[p + 1] == null){
                                     rotaryOccupant[p + 1] = rotaryOccupant[p];
                                     rotaryOccupant[p] = null;
-                                    tracker.confirmLocation(rotaryOccupant[p + 1], "ROTARY_P" + (p + 1));
+                                    System.out.println("TRACKER confirmLocation " + rotaryOccupant[p + 1] + " ROTARY_P" + (p + 1));
                                 }
                             }
                         }
@@ -318,18 +323,18 @@ CoordinatorCD(
             int discarded = 0;
             for (int p = 1; p <= 5; p++){
                 if (rotaryOccupant[p] != null){
-                    tracker.setStatus(rotaryOccupant[p], "ABORTED");
+                    System.out.println("TRACKER setStatus " + rotaryOccupant[p] + " ABORTED");
                     rotaryOccupant[p] = null;
                     discarded++;
                 }
             }
             if (labellerOccupant != null){
-                tracker.setStatus(labellerOccupant, "ABORTED");
+                System.out.println("TRACKER setStatus " + labellerOccupant + " ABORTED");
                 labellerOccupant = null;
                 discarded++;
             }
             if (unloaderOccupant != null){
-                tracker.setStatus(unloaderOccupant, "ABORTED");
+                System.out.println("TRACKER setStatus " + unloaderOccupant + " ABORTED");
                 unloaderOccupant = null;
                 discarded++;
             }

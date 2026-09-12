@@ -1,0 +1,47 @@
+ConveyorPlant(
+
+	// controller --> plant
+
+    input Boolean channel motorRun;
+
+    // plant --> controller
+
+    output Boolean channel photoEye;
+
+    output Boolean channel bottleLeft;
+
+)->{
+
+    while(true){
+
+        receive motorRun;
+
+        if((Boolean)#motorRun){
+
+            System.out.println("Plant: MOTOR Run received");
+
+            waitl(500 ms);
+
+            System.out.println("Plant: bottle reached photo eye");
+
+            send photoEye(true);
+
+            waitl(500 ms);
+
+            System.out.println("Plant: bottle left conveyor");
+
+            send bottleLeft(true);
+
+        }
+
+        else{
+
+            System.out.println("Plant: MOTOR OFF received");
+
+        }
+
+        pause;
+
+    }
+
+}

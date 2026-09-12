@@ -1,0 +1,128 @@
+ConveyorController(
+
+    input String channel commandIn;
+
+    output String channel reportOut;
+
+    input String channel ackIn;
+
+    output Boolean channel motorRun;
+
+    input Boolean channel photoEye;
+
+    input Boolean channel bottleLeft;
+
+)->{
+
+    send reportOut("READY|CONVEYOR");
+
+    while(true){
+
+        receive commandIn;
+
+        String command = (String)#commandIn;
+
+        int first = command.indexOf("|");
+
+        int second =
+            command.indexOf("|", first + 1);
+
+        int third =
+            command.indexOf("|", second + 1);
+
+        String jobId =
+            command.substring(
+                first + 1,
+                second
+            );
+
+        String workpieceId =
+            command.substring(
+                second + 1,
+                third
+            );
+
+
+        System.out.println(
+            "START received for " + workpieceId
+        );
+
+
+        send reportOut(
+            "BUSY|" +
+            jobId + "|" +
+            workpieceId +
+            "|CONVEYOR"
+        );
+
+
+        send motorRun(true);
+
+
+        receive photoEye;
+
+
+        if((Boolean)#photoEye){
+
+            System.out.println(
+                "Bottle detected by photo eye"
+            );
+
+
+            receive bottleLeft;
+
+
+            if((Boolean)#bottleLeft){
+
+                send motorRun(false);
+
+                send reportOut(
+                    "DONE|" +
+                    jobId + "|" +
+                    workpieceId +
+                    "|CONVEYOR|OK|bottleMoved=true"
+                );
+
+
+                receive ackIn;
+
+
+                send reportOut(
+                    "READY|CONVEYOR"
+                );
+
+            }
+
+            else{
+
+                send motorRun(false);
+
+                send reportOut(
+                    "FAULT|" +
+                    jobId + "|" +
+                    workpieceId +
+                    "|CONVEYOR|BOTTLE_NOT_LEFT"
+                );
+
+            }
+
+        }
+
+        else{
+
+            send motorRun(false);
+
+            send reportOut(
+                "FAULT|" +
+                jobId + "|" +
+                workpieceId +
+                "|CONVEYOR|PHOTO_EYE_NOT_TRIGGERED"
+            );
+
+        }
+
+        pause;
+
+    }
+
+}

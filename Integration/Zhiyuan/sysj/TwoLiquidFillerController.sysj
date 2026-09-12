@@ -1,0 +1,162 @@
+TwoLiquidFillerController(
+
+    input String channel commandIn;
+
+    output String channel reportOut;
+
+    input String channel ackIn;
+
+    // controller --> plant
+
+    output Integer channel dose1;
+
+    output Integer channel dose2;
+
+    // plant --> controller
+
+    input Boolean channel bottlePresent;
+
+    input Boolean channel dose1Done;
+
+    input Boolean channel dose2Done;
+
+    input Boolean channel overflow;
+
+)->{
+
+    send reportOut("READY|FILLER");
+
+    while(true){
+
+        receive commandIn;
+
+        String command = (String)#commandIn;
+
+        int first = command.indexOf("|");
+
+        int second =
+            command.indexOf("|", first + 1);
+
+        int third =
+            command.indexOf("|", second + 1);
+
+        int fourth =
+            command.indexOf("|", third + 1);
+
+        int fifth =
+            command.indexOf("|", fourth + 1);
+
+        int sixth =
+            command.indexOf("|", fifth + 1);
+
+
+        String jobId =
+            command.substring(
+                first + 1,
+                second
+            );
+
+        String workpieceId =
+            command.substring(
+                second + 1,
+                third
+            );
+
+        int target1 =
+            Integer.parseInt(
+                command.substring(
+                    fifth + 1,
+                    sixth
+                )
+            );
+
+        int target2 =
+            Integer.parseInt(
+                command.substring(
+                    sixth + 1
+                )
+            );
+
+
+        System.out.println(
+            "START received for " + workpieceId
+        );
+
+
+        receive bottlePresent;
+
+
+        if((Boolean)#bottlePresent){
+
+            send reportOut(
+                "BUSY|" +
+                jobId + "|" +
+                workpieceId +
+                "|FILLER"
+            );
+
+
+            send dose1(target1);
+
+            receive dose1Done;
+
+
+            send dose2(target2);
+
+            receive dose2Done;
+
+
+            receive overflow;
+
+
+            if((Boolean)#overflow){
+
+                send reportOut(
+                    "FAULT|" +
+                    jobId + "|" +
+                    workpieceId +
+                    "|FILLER|OVERFLOW"
+                );
+
+            }
+
+            else{
+
+                send reportOut(
+                    "DONE|" +
+                    jobId + "|" +
+                    workpieceId +
+                    "|FILLER|OK|liquidA=" +
+                    target1 +
+                    "|liquidB=" +
+                    target2
+                );
+
+
+                receive ackIn;
+
+
+                send reportOut(
+                    "READY|FILLER"
+                );
+
+            }
+
+        }
+
+        else{
+
+            send reportOut(
+                "FAULT|" +
+                jobId + "|" +
+                workpieceId +
+                "|FILLER|NO_BOTTLE_PRESENT"
+            );
+
+        }
+
+        pause;
+
+    }
+
+}

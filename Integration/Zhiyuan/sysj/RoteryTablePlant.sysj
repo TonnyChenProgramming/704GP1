@@ -1,0 +1,50 @@
+RotaryTablePlant(
+
+    // controller --> plant
+    input Boolean channel rotate;
+
+    // plant --> controller
+    output Boolean channel aligned;
+    output String channel occupancy;
+
+)->{
+
+    String positionOccupancy = "000000";
+
+    while(true){
+
+        receive rotate;
+
+        if((Boolean)#rotate){
+
+            System.out.println(
+                "Plant: ROTATE received"
+            );
+
+            waitl(500 ms);
+
+            // Rotate all table positions by one 60-degree step
+
+            positionOccupancy =
+                positionOccupancy.substring(5)
+                + positionOccupancy.substring(0,5);
+
+            System.out.println(
+                "Plant: table rotated 60 degrees"
+            );
+
+            System.out.println(
+                "Plant: occupancy = " + positionOccupancy
+            );
+
+            send aligned(true);
+
+            send occupancy(positionOccupancy);
+
+        }
+
+        pause;
+
+    }
+
+}
