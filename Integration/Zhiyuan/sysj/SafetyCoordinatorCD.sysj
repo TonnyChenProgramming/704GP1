@@ -1,0 +1,102 @@
+// Safety lifecycle split from the frozen centralised CoordinatorCD.
+// The safety model owns permit/acknowledgement state; SystemJ distributes hold/reset events.
+
+import nz.ac.auckland.eabs.zhiyuan.coordinator.SafetyCoordinatorModel;
+
+SafetyCoordinatorCD(
+
+    input signal safetyPermitLost;
+
+    input signal safetyPermitRestored;
+
+    input signal safetyResetRequested;
+
+    output String channel productionSafetyHoldOut;
+
+    output String channel productionSafetyResetOut;
+
+    input String channel productionSafetyResetDoneIn;
+
+    output String channel batchSafetyResetOut;
+
+)->{
+
+    SafetyCoordinatorModel signal stateModel;
+
+    emit stateModel(new SafetyCoordinatorModel());
+
+    pause;
+
+    {
+
+        SafetyCoordinatorModel model = (SafetyCoordinatorModel)#stateModel;
+
+        while(true){
+
+            await(safetyPermitLost);
+
+            model.hazard();
+
+            send productionSafetyHoldOut("SAFETY_PERMIT_LOST_MANUAL_RECOVERY_REQUIRED");
+
+            pause;
+
+        }
+
+    }
+
+    ||
+
+    {
+
+        SafetyCoordinatorModel model = (SafetyCoordinatorModel)#stateModel;
+
+        while(true){
+
+            await(safetyPermitRestored);
+
+            model.permitRestored();
+
+            pause;
+
+        }
+
+    }
+
+    ||
+
+    {
+
+        SafetyCoordinatorModel model = (SafetyCoordinatorModel)#stateModel;
+
+        String resetDone = "";
+
+        while(true){
+
+            await(safetyResetRequested);
+
+            model.acknowledge();
+
+            if(model.canReset()){
+
+                send productionSafetyResetOut("RESET");
+
+                receive productionSafetyResetDoneIn; resetDone = (String)#productionSafetyResetDoneIn;
+
+                if(resetDone.equals("RESET_DONE")){
+
+                    send batchSafetyResetOut("RESET");
+
+                    model.resetComplete();
+
+                }
+
+            }
+
+            pause;
+
+        }
+
+    }
+
+}

@@ -89,7 +89,7 @@ public final class EclipseSystemJBuild {
                 "safety_monitor.sysj",
                 "BottleLoaderController.sysj", "BottleLoaderPlant.sysj", "ConveyorController.sysj", "ConveyorPlant.sysj",
                 "RoteryTableController.sysj", "RoteryTablePlant.sysj", "TwoLiquidFillerController.sysj",
-                "TwoLiquidFillerPlant.sysj"}) {
+                "TwoLiquidFillerPlant.sysj",   "BatchCoordinatorCD.sysj", "ProductionCoordinatorCD.sysj", "SafetyCoordinatorCD.sysj",}) {
             sources.add(root.resolve("sysj").resolve(name));
         }
         sources.add(eric.resolve("systemj/finishing_devices.sysj"));
@@ -101,8 +101,8 @@ public final class EclipseSystemJBuild {
                 "-d", generated.toString(), "--nojavac", "--silence", "--", source.toString());
         }
         List<Path> generatedSources = files(generated, ".java", false);
-        if (generatedSources.size() != 25) throw new IOException("Expected 25 fresh CD sources, got " + generatedSources.size());
-        System.out.println("[3/3] Compile and check all 25 generated CD classes");
+        if (generatedSources.size() != 28) throw new IOException("Expected 28 fresh CD sources, got " + generatedSources.size());
+        System.out.println("[3/3] Compile and check all 28 generated CD classes");
         compileJava(generatedSources);
         for (Path source : generatedSources) {
             String name = source.getFileName().toString().replaceFirst("\\.java$", ".class");

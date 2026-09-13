@@ -1,0 +1,114 @@
+// Batch lifecycle split from the frozen centralised CoordinatorCD.
+// SystemJ owns inter-CD communication; BatchCoordinatorModel owns batch state.
+
+import nz.ac.auckland.eabs.zhiyuan.coordinator.BatchCoordinatorModel;
+
+BatchCoordinatorCD(
+
+    input String channel activateBatchIn;
+
+    output String channel batchDrainedOut;
+
+    output String channel productionBatchOut;
+
+    input String channel productionEventIn;
+
+    input String channel safetyResetIn;
+
+)->{
+
+    BatchCoordinatorModel signal stateModel;
+
+    emit stateModel(new BatchCoordinatorModel());
+
+    pause;
+
+    {
+
+        BatchCoordinatorModel model = (BatchCoordinatorModel)#stateModel;
+
+        String batchFrame = "";
+
+        String productionFrame = "";
+
+        while(true){
+
+            if(model.awaitingOrder()){
+
+                receive activateBatchIn; batchFrame = (String)#activateBatchIn;
+
+                model.activate(batchFrame);
+
+                productionFrame = model.productionFrame();
+
+                if(!productionFrame.equals("")){ send productionBatchOut(productionFrame); }
+
+            }
+
+            pause;
+
+        }
+
+    }
+
+    ||
+
+    {
+
+        BatchCoordinatorModel model = (BatchCoordinatorModel)#stateModel;
+
+        String result = "";
+
+        while(true){
+
+            result = model.response();
+
+            if(!result.equals("")){ send batchDrainedOut(result); model.responseSent(); }
+
+            pause;
+
+        }
+
+    }
+
+    ||
+
+    {
+
+        BatchCoordinatorModel model = (BatchCoordinatorModel)#stateModel;
+
+        String event = "";
+
+        while(true){
+
+            receive productionEventIn; event = (String)#productionEventIn;
+
+            model.productionEvent(event);
+
+            pause;
+
+        }
+
+    }
+
+    ||
+
+    {
+
+        BatchCoordinatorModel model = (BatchCoordinatorModel)#stateModel;
+
+        String reset = "";
+
+        while(true){
+
+            receive safetyResetIn; reset = (String)#safetyResetIn;
+
+            if(reset.equals("RESET")){ model.reset(); }
+
+            pause;
+
+        }
+
+    }
+
+}
