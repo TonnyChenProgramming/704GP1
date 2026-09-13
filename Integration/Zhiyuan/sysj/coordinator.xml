@@ -126,14 +126,12 @@
         <ClockDomain Name="RotaryTableController" Class="RotaryTableController">
             <oChannel Name="rotate" To="RotaryTablePlant.rotate" />
             <iChannel Name="aligned" From="RotaryTablePlant.aligned" />
-            <iChannel Name="occupancy" From="RotaryTablePlant.occupancy" />
             <iSignal Name="rotateTrigger" Class="com.systemj.ipc.SimpleServer" IP="127.0.0.1" Port="30101" />
             <oSignal Name="tableAligned" To="CoordinatorCD.tableAligned" Class="com.systemj.ipc.SimpleClient" IP="127.0.0.1" Port="30102" />
         </ClockDomain>
         <ClockDomain Name="RotaryTablePlant" Class="RotaryTablePlant">
             <iChannel Name="rotate" From="RotaryTableController.rotate" />
             <oChannel Name="aligned" To="RotaryTableController.aligned" />
-            <oChannel Name="occupancy" To="RotaryTableController.occupancy" />
         </ClockDomain>
         <ClockDomain Name="LidLoaderControllerCD" Class="LidLoaderControllerCD">
             <iChannel Name="jobIn" From="LidLoaderShimCD.deviceJobOut" />

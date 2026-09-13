@@ -5,11 +5,8 @@ RotaryTablePlant(
 
     // plant --> controller
     output Boolean channel aligned;
-    output String channel occupancy;
 
 )->{
-
-    String positionOccupancy = "000000";
 
     while(true){
 
@@ -21,30 +18,18 @@ RotaryTablePlant(
                 "Plant: ROTATE received"
             );
 
+            // Simulate one 60-degree rotation
             waitl(500 ms);
-
-            // Rotate all table positions by one 60-degree step
-
-            positionOccupancy =
-                positionOccupancy.substring(5)
-                + positionOccupancy.substring(0,5);
 
             System.out.println(
                 "Plant: table rotated 60 degrees"
             );
 
-            System.out.println(
-                "Plant: occupancy = " + positionOccupancy
-            );
-
+            // Alignment is the authoritative
+            // rotation completion evidence
             send aligned(true);
-
-            send occupancy(positionOccupancy);
-
         }
 
         pause;
-
     }
-
 }

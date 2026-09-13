@@ -1,130 +1,161 @@
 TwoLiquidFillerController(
 
     input String channel commandIn;
-
     output String channel reportOut;
-
     input String channel ackIn;
 
-    // controller --> plant
-
     output Integer channel dose1;
-
     output Integer channel dose2;
 
-    // plant --> controller
-
     input Boolean channel bottlePresent;
-
     input Boolean channel dose1Done;
-
     input Boolean channel dose2Done;
-
     input Boolean channel overflow;
 
 )->{
+
+    int stage = 0;
+
+    String jobId = "";
+    String workpieceId = "";
+
+    int target1 = 0;
+    int target2 = 0;
 
     send reportOut("READY|FILLER");
 
     while(true){
 
-        receive commandIn;
+        if(stage == 0){
 
-        String command = (String)#commandIn;
+            receive commandIn;
 
-        int first = command.indexOf("|");
+            String command = (String)#commandIn;
 
-        int second =
-            command.indexOf("|", first + 1);
+            int p1 = command.indexOf("|");
+            int p2 = command.indexOf("|", p1 + 1);
+            int p3 = command.indexOf("|", p2 + 1);
+            int p4 = command.indexOf("|", p3 + 1);
+            int p5 = command.indexOf("|", p4 + 1);
+            int p6 = command.indexOf("|", p5 + 1);
 
-        int third =
-            command.indexOf("|", second + 1);
+            jobId = command.substring(p1 + 1, p2);
+            workpieceId = command.substring(p2 + 1, p3);
 
-        int fourth =
-            command.indexOf("|", third + 1);
-
-        int fifth =
-            command.indexOf("|", fourth + 1);
-
-        int sixth =
-            command.indexOf("|", fifth + 1);
-
-
-        String jobId =
-            command.substring(
-                first + 1,
-                second
+            target1 = Integer.parseInt(
+                command.substring(p5 + 1, p6)
             );
 
-        String workpieceId =
-            command.substring(
-                second + 1,
-                third
+            target2 = Integer.parseInt(
+                command.substring(p6 + 1)
             );
 
-        int target1 =
-            Integer.parseInt(
-                command.substring(
-                    fifth + 1,
-                    sixth
-                )
+            System.out.println(
+                "START received for " + workpieceId
             );
 
-        int target2 =
-            Integer.parseInt(
-                command.substring(
-                    sixth + 1
-                )
-            );
+            stage = 1;
 
+        }
+        else if(stage == 1){
 
-        System.out.println(
-            "START received for " + workpieceId
-        );
+            receive bottlePresent;
 
+            if((Boolean)#bottlePresent){
 
-        receive bottlePresent;
+                send reportOut(
+                    "BUSY|" + jobId + "|" +
+                    workpieceId + "|FILLER"
+                );
 
+                stage = 2;
 
-        if((Boolean)#bottlePresent){
+            }
+            else{
 
-            send reportOut(
-                "BUSY|" +
-                jobId + "|" +
-                workpieceId +
-                "|FILLER"
-            );
+                send reportOut(
+                    "FAULT|" + jobId + "|" +
+                    workpieceId +
+                    "|FILLER|NO_BOTTLE_PRESENT"
+                );
 
+                stage = 0;
+            }
+
+        }
+        else if(stage == 2){
 
             send dose1(target1);
+            stage = 3;
+
+        }
+        else if(stage == 3){
 
             receive dose1Done;
 
+            if((Boolean)#dose1Done){
+
+                stage = 4;
+
+            }
+            else{
+
+                send reportOut(
+                    "FAULT|" + jobId + "|" +
+                    workpieceId +
+                    "|FILLER|DOSE1_NOT_DONE"
+                );
+
+                stage = 0;
+            }
+
+        }
+        else if(stage == 4){
 
             send dose2(target2);
+            stage = 5;
+
+        }
+        else if(stage == 5){
 
             receive dose2Done;
 
+            if((Boolean)#dose2Done){
+
+                stage = 6;
+
+            }
+            else{
+
+                send reportOut(
+                    "FAULT|" + jobId + "|" +
+                    workpieceId +
+                    "|FILLER|DOSE2_NOT_DONE"
+                );
+
+                stage = 0;
+            }
+
+        }
+        else if(stage == 6){
 
             receive overflow;
-
 
             if((Boolean)#overflow){
 
                 send reportOut(
-                    "FAULT|" +
-                    jobId + "|" +
+                    "FAULT|" + jobId + "|" +
                     workpieceId +
                     "|FILLER|OVERFLOW"
                 );
 
-            }
+                stage = 0;
 
+            }
             else{
 
                 send reportOut(
-                    "DONE|" +
-                    jobId + "|" +
+                    "DONE|" + jobId + "|" +
                     workpieceId +
                     "|FILLER|OK|liquidA=" +
                     target1 +
@@ -132,31 +163,21 @@ TwoLiquidFillerController(
                     target2
                 );
 
-
-                receive ackIn;
-
-
-                send reportOut(
-                    "READY|FILLER"
-                );
-
+                stage = 7;
             }
 
         }
+        else if(stage == 7){
 
-        else{
+            receive ackIn;
 
             send reportOut(
-                "FAULT|" +
-                jobId + "|" +
-                workpieceId +
-                "|FILLER|NO_BOTTLE_PRESENT"
+                "READY|FILLER"
             );
 
+            stage = 0;
         }
 
         pause;
-
     }
-
 }
