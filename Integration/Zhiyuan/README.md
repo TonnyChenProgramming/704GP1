@@ -48,9 +48,15 @@ an interactive integration profile, not yet a connection to the actual POS CD.
 the IP's real persistence layer (`com.g7.ip.POS`/`BatchManager`/`Dao`, synchronous
 Stage-1 JDBC calls) in front of the same Coordinator: enter a customer purchase
 order (customer_po/customer_id/product_id/quantity/bottle_spec/recipe_id) and it
-is validated and written to SQLite before being consolidated into a batch and
-activated. Two default recipes are seeded on first run. The database defaults to
-a fresh `build/ip-<uuid>.db` per run; pass `-Dip.database=build/ip-dev.db` (already
+is validated and stored as a PENDING row in `Orders` -- it is NOT activated yet.
+Type `go` (instead of a customer_po) once you are done entering orders for this
+round; only then does the Batch Manager query all PENDING orders, consolidate
+everyone waiting on the same product into a single batch, and activate it. This
+two-step shape (enter orders, then `go`) is what lets several orders for the same
+product actually merge into one batch: submitting an order and immediately
+activating it solo, with nothing else pending yet, cannot demonstrate cross-order
+merging. Two default recipes are seeded on first run. The database defaults to a
+fresh `build/ip-<uuid>.db` per run; pass `-Dip.database=build/ip-dev.db` (already
 set in this launch config) to reuse one fixed file across runs, e.g. for
 inspecting it with a SQLite viewer while the simulation is running.
 

@@ -65,6 +65,11 @@ public final class IpBatchManagerModel {
         }, "ip-batch-manager-console");
         reader.setDaemon(true);
         reader.start();
+
+        // "On startup" per POS_BatchManager_Spec.md Section 4 -- picks up any orders left
+        // PENDING from a previous run if -Dip.database points at a reused persistent file.
+        // A no-op on the (default) fresh database.
+        triggerBatchIfIdle();
     }
 
     /** Recipes are a pre-existing catalog in the real design (POS validates against them,
@@ -84,14 +89,22 @@ public final class IpBatchManagerModel {
 
     private void readLoop() {
         while (!halted) {
-            System.out.println("[IpBatchManager] Enter next purchase order (server validates; bad values come back Rejected):");
-            String customerPo = readField("  customer_po [A-Za-z0-9_.-]{1,60}: ");
+            System.out.println("[IpBatchManager] Enter next purchase order, or 'go' to activate now (server validates; bad values come back Rejected):");
+            String customerPo = readField("  customer_po [A-Za-z0-9_.-]{1,60}, or 'go': ");
+            if (customerPo == null) {
+                System.out.println("[IpBatchManager] Input closed; no more orders will be submitted.");
+                return;
+            }
+            if (customerPo.equalsIgnoreCase("go")) {
+                triggerBatchIfIdle();
+                continue;
+            }
             String customerId = readField("  customer_id: ");
             String productId = readField("  product_id: ");
             String quantityText = readField("  quantity [>0]: ");
             String bottleSpec = readField("  bottle_spec: ");
             String recipeIdText = readField("  recipe_id [int, must already exist in Recipes]: ");
-            if (customerPo == null || customerId == null || productId == null || quantityText == null
+            if (customerId == null || productId == null || quantityText == null
                     || bottleSpec == null || recipeIdText == null) {
                 System.out.println("[IpBatchManager] Input closed; no more orders will be submitted.");
                 return;
@@ -127,12 +140,28 @@ public final class IpBatchManagerModel {
         }
         try {
             POS.SubmitResult result = pos.submitOrder(customerPo, customerId, productId, quantity, bottleSpec, recipeId);
-            System.out.println("[IpBatchManager] " + result);
-            if (result.accepted && awaitingResultFor == null) {
-                batchManager.start();
-            }
+            System.out.println("[IpBatchManager] " + result
+                    + (result.accepted ? " -- stored as PENDING; type 'go' once you're done entering orders for this batch." : ""));
         } catch (SQLException failure) {
             System.out.println("[IpBatchManager] Database error while submitting order: " + failure.getMessage());
+        }
+    }
+
+    /** Explicit trigger (console 'go', or once at startup) -- deliberately NOT called from
+     * submitOrder() itself, so several PENDING orders for the same product can accumulate
+     * and be merged into one batch (POS_BatchManager_Spec.md Section 4/7 cross-order
+     * scheduling) instead of the first order always being activated alone before a second
+     * one is even entered. */
+    private synchronized void triggerBatchIfIdle() {
+        if (halted || batchManager == null) { return; }
+        if (awaitingResultFor != null) {
+            System.out.println("[IpBatchManager] A batch is already in flight -- pending orders will be picked up once it drains.");
+            return;
+        }
+        try {
+            batchManager.start();
+        } catch (SQLException failure) {
+            System.out.println("[IpBatchManager] Database error while checking pending demand: " + failure.getMessage());
         }
     }
 
