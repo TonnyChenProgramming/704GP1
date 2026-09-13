@@ -1,10 +1,16 @@
 <!-- Simulation acceptance: real controller/plant pairs; ONLY the batch source is a harness.
-     Safety input is exposed but no safety monitor is connected. Not a safety-certified profile. -->
+     SafetyMonitorCD is an interactive stand-in for human-presence/environmental sensors
+     until the operator GUI wires ACKNOWLEDGE_HAZARD/SAFE_RESET directly. -->
 <System xmlns="http://systemjtechnology.com">
     <SubSystem Name="IntegratedCoordinatorAcceptance" Local="true">
         <ClockDomain Name="CoordinatorBatchHarnessCD" Class="CoordinatorBatchHarnessCD">
             <oChannel Name="activateBatchOut" To="CoordinatorCD.activateBatchIn" />
             <iChannel Name="batchResultIn" From="CoordinatorCD.batchDrainedOut" />
+        </ClockDomain>
+        <ClockDomain Name="SafetyMonitorCD" Class="SafetyMonitorCD">
+            <oSignal Name="safetyPermitLost" To="CoordinatorCD.safetyPermitLost" Class="com.systemj.ipc.SimpleClient" IP="127.0.0.1" Port="30103" />
+            <oSignal Name="safetyPermitRestored" To="CoordinatorCD.safetyPermitRestored" Class="com.systemj.ipc.SimpleClient" IP="127.0.0.1" Port="30104" />
+            <oSignal Name="safetyResetRequested" To="CoordinatorCD.safetyResetRequested" Class="com.systemj.ipc.SimpleClient" IP="127.0.0.1" Port="30105" />
         </ClockDomain>
         <ClockDomain Name="CoordinatorCD" Class="CoordinatorCD">
             <iChannel Name="activateBatchIn" From="CoordinatorBatchHarnessCD.activateBatchOut" />
@@ -33,6 +39,8 @@
             <oSignal Name="rotateTrigger" To="RotaryTableController.rotateTrigger" Class="com.systemj.ipc.SimpleClient" IP="127.0.0.1" Port="30101" />
             <iSignal Name="tableAligned" Class="com.systemj.ipc.SimpleServer" IP="127.0.0.1" Port="30102" />
             <iSignal Name="safetyPermitLost" Class="com.systemj.ipc.SimpleServer" IP="127.0.0.1" Port="30103" />
+            <iSignal Name="safetyPermitRestored" Class="com.systemj.ipc.SimpleServer" IP="127.0.0.1" Port="30104" />
+            <iSignal Name="safetyResetRequested" Class="com.systemj.ipc.SimpleServer" IP="127.0.0.1" Port="30105" />
         </ClockDomain>
         <ClockDomain Name="BottleLoaderController" Class="BottleLoaderController">
             <iChannel Name="commandIn" From="CoordinatorCD.loaderJobOut" />

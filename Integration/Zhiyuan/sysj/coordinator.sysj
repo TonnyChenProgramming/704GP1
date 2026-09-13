@@ -29,6 +29,8 @@ CoordinatorCD(
     output signal rotateTrigger;
     input signal tableAligned;
     input signal safetyPermitLost;
+    input signal safetyPermitRestored;
+    input signal safetyResetRequested;
 )->{
     IntegratedCoordinator signal stateModel;
     emit stateModel(new IntegratedCoordinator());
@@ -73,6 +75,16 @@ CoordinatorCD(
     {
         IntegratedCoordinator model = (IntegratedCoordinator)#stateModel;
         while(true){ await(safetyPermitLost); model.hazard(); pause; }
+    }
+    ||
+    {
+        IntegratedCoordinator model = (IntegratedCoordinator)#stateModel;
+        while(true){ await(safetyPermitRestored); model.permitRestored(); pause; }
+    }
+    ||
+    {
+        IntegratedCoordinator model = (IntegratedCoordinator)#stateModel;
+        while(true){ await(safetyResetRequested); model.reset(); pause; }
     }
     ||
     {

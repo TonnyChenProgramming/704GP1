@@ -244,6 +244,31 @@ public final class IntegratedCoordinator {
 
     public synchronized void hazard() { unsafe = true; fail("SAFETY_PERMIT_LOST_MANUAL_RECOVERY_REQUIRED"); }
 
+    /** Sensor condition cleared. Does not by itself resume production: reset() still requires it. */
+    public synchronized void permitRestored() { unsafe = false; }
+
+    /** Operator acknowledgement. Only the safety hold is recoverable, and only once the hazard is cleared.
+     * Reconciles the line by archiving every open workpiece as ABORTED before resuming from WAIT_ORDER,
+     * per "Open or incomplete bottles are marked ABORTED and removed before resumption" in the brief. */
+    public synchronized void reset() {
+        if (unsafe || !fault.equals("SAFETY_PERMIT_LOST_MANUAL_RECOVERY_REQUIRED")) return;
+        try {
+            if (input != null) { tracker.abortAndArchive(input, "SAFETY_STOP"); input = null; }
+            for (int p = 0; p < 6; p++) {
+                if (table[p] != null) { tracker.abortAndArchive(table[p], "SAFETY_STOP"); table[p] = null; }
+            }
+            if (label != null) { tracker.abortAndArchive(label, "SAFETY_STOP"); label = null; }
+            if (output != null) { tracker.abortAndArchive(output, "SAFETY_STOP"); output = null; }
+        } catch (java.io.IOException failure) {
+            System.err.println("COORDINATOR RESET_FAILED archive error, remaining on hold: " + failure.getMessage());
+            return;
+        }
+        for (Station s : machines.values()) { s.job = null; s.taken = false; s.busy = false; s.deadline = 0; }
+        rotating = false; rotationOffered = false; labelDone = false;
+        fault = ""; response = ""; phase = "WAIT_ORDER";
+        System.out.println("COORDINATOR SAFETY RESET -- line reconciled, ready for next order.");
+    }
+
     private void fail(String reason) {
         if (!fault.isEmpty()) return;
         fault = reason; phase = "HOLD"; response = "FAULT|" + (batch.isEmpty() ? "NONE" : batch) + "|" + reason;

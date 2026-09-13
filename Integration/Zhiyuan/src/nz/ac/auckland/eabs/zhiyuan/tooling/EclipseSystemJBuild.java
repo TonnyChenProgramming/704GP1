@@ -86,6 +86,7 @@ public final class EclipseSystemJBuild {
         compileJava(helpers);
         List<Path> sources = new ArrayList<Path>();
         for (String name : new String[]{"coordinator.sysj", "coordinator_harness.sysj", "batch_manager.sysj",
+                "safety_monitor.sysj",
                 "BottleLoaderController.sysj", "BottleLoaderPlant.sysj", "ConveyorController.sysj", "ConveyorPlant.sysj",
                 "RoteryTableController.sysj", "RoteryTablePlant.sysj", "TwoLiquidFillerController.sysj",
                 "TwoLiquidFillerPlant.sysj"}) {
@@ -100,8 +101,8 @@ public final class EclipseSystemJBuild {
                 "-d", generated.toString(), "--nojavac", "--silence", "--", source.toString());
         }
         List<Path> generatedSources = files(generated, ".java", false);
-        if (generatedSources.size() != 24) throw new IOException("Expected 24 fresh CD sources, got " + generatedSources.size());
-        System.out.println("[3/3] Compile and check all 23 generated CD classes");
+        if (generatedSources.size() != 25) throw new IOException("Expected 25 fresh CD sources, got " + generatedSources.size());
+        System.out.println("[3/3] Compile and check all 25 generated CD classes");
         compileJava(generatedSources);
         for (Path source : generatedSources) {
             String name = source.getFileName().toString().replaceFirst("\\.java$", ".class");
