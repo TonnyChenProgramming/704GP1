@@ -130,10 +130,11 @@ public final class IntegratedCoordinator {
             }
         }
         if (name.equals("LOADER") && !"true".equals(evidence.get("bottlePlaced"))
-            || name.equals("CONVEYOR") && !"true".equals(evidence.get("bottleMoved"))
-            || name.equals("FILLER") && (!Integer.toString(doseA).equals(evidence.get("liquidA")) || !Integer.toString(doseB).equals(evidence.get("liquidB")))) {
-            fail("MISSING_COMPLETION_EVIDENCE_" + name); return "";
-        }
+        	    || name.equals("CONVEYOR") && !"true".equals(evidence.get("bottleMoved"))
+        	    || name.equals("FILLER") && (evidence.get("liquidA") == null
+        	        || evidence.get("liquidB") == null)) {
+        	    fail("MISSING_COMPLETION_EVIDENCE_" + name); return "";
+        	}
         String richMachine = name.equals("LID") ? "LidLoaderController" : name.equals("CAPPER") ? "CapperController"
             : name.equals("LABELLER") ? "LabelerController" : name.equals("UNLOADER") ? "UnloaderController" : "";
         if (!richMachine.isEmpty()) {
@@ -145,10 +146,11 @@ public final class IntegratedCoordinator {
                 fail("LABEL_MISMATCH"); return "";
             }
         }
-        // Tonny's filler reports commanded amounts, NOT independent measurements.
+	     // Filler returns simulated plant-side actual amounts.
+	     // Keep commanded and actual values separate.
         if (name.equals("FILLER")) {
-            evidence.put("commandedLiquidA", evidence.remove("liquidA"));
-            evidence.put("commandedLiquidB", evidence.remove("liquidB"));
+            evidence.put("commandedLiquidA", Integer.toString(doseA));
+            evidence.put("commandedLiquidB", Integer.toString(doseB));
         }
         tracker.acceptReport(MachineReport.done(j, "OK", evidence));
         String wp = j.getWorkpieceId();

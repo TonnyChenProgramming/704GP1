@@ -62,6 +62,8 @@
             <iChannel Name="dose1Done" From="TwoLiquidFillerPlant.dose1Done" />
             <iChannel Name="dose2Done" From="TwoLiquidFillerPlant.dose2Done" />
             <iChannel Name="overflow" From="TwoLiquidFillerPlant.overflow" />
+            <iChannel Name="currentAmountA" From="TwoLiquidFillerPlant.currentAmountA" />
+			<iChannel Name="currentAmountB" From="TwoLiquidFillerPlant.currentAmountB" />
         </ClockDomain>
         <ClockDomain Name="LidLoaderShimCD" Class="LidLoaderShimCD">
             <iChannel Name="commandIn" From="CoordinatorCD.lidJobOut" />
@@ -122,6 +124,8 @@
             <oChannel Name="dose1Done" To="TwoLiquidFillerController.dose1Done" />
             <oChannel Name="dose2Done" To="TwoLiquidFillerController.dose2Done" />
             <oChannel Name="overflow" To="TwoLiquidFillerController.overflow" />
+            <oChannel Name="currentAmountA" To="TwoLiquidFillerController.currentAmountA" />
+			<oChannel Name="currentAmountB" To="TwoLiquidFillerController.currentAmountB" />
         </ClockDomain>
         <ClockDomain Name="RotaryTableController" Class="RotaryTableController">
             <oChannel Name="rotate" To="RotaryTablePlant.rotate" />

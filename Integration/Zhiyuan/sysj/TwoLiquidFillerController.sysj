@@ -12,6 +12,9 @@ TwoLiquidFillerController(
     input Boolean channel dose2Done;
     input Boolean channel overflow;
 
+    input Integer channel currentAmountA;
+    input Integer channel currentAmountB;
+
 )->{
 
     int stage = 0;
@@ -22,6 +25,9 @@ TwoLiquidFillerController(
     int target1 = 0;
     int target2 = 0;
 
+    int actual1 = 0;
+    int actual2 = 0;
+
     send reportOut("READY|FILLER");
 
     while(true){
@@ -29,7 +35,6 @@ TwoLiquidFillerController(
         if(stage == 0){
 
             receive commandIn;
-
             String command = (String)#commandIn;
 
             int p1 = command.indexOf("|");
@@ -50,14 +55,16 @@ TwoLiquidFillerController(
                 command.substring(p6 + 1)
             );
 
+            actual1 = 0;
+            actual2 = 0;
+
             System.out.println(
                 "START received for " + workpieceId
             );
 
             stage = 1;
 
-        }
-        else if(stage == 1){
+        }else if(stage == 1){
 
             receive bottlePresent;
 
@@ -70,8 +77,7 @@ TwoLiquidFillerController(
 
                 stage = 2;
 
-            }
-            else{
+            }else{
 
                 send reportOut(
                     "FAULT|" + jobId + "|" +
@@ -82,23 +88,23 @@ TwoLiquidFillerController(
                 stage = 0;
             }
 
-        }
-        else if(stage == 2){
+        }else if(stage == 2){
 
             send dose1(target1);
             stage = 3;
 
-        }
-        else if(stage == 3){
+        }else if(stage == 3){
 
             receive dose1Done;
 
             if((Boolean)#dose1Done){
 
+                receive currentAmountA;
+                actual1 = (Integer)#currentAmountA;
+
                 stage = 4;
 
-            }
-            else{
+            }else{
 
                 send reportOut(
                     "FAULT|" + jobId + "|" +
@@ -109,23 +115,23 @@ TwoLiquidFillerController(
                 stage = 0;
             }
 
-        }
-        else if(stage == 4){
+        }else if(stage == 4){
 
             send dose2(target2);
             stage = 5;
 
-        }
-        else if(stage == 5){
+        }else if(stage == 5){
 
             receive dose2Done;
 
             if((Boolean)#dose2Done){
 
+                receive currentAmountB;
+                actual2 = (Integer)#currentAmountB;
+
                 stage = 6;
 
-            }
-            else{
+            }else{
 
                 send reportOut(
                     "FAULT|" + jobId + "|" +
@@ -136,8 +142,7 @@ TwoLiquidFillerController(
                 stage = 0;
             }
 
-        }
-        else if(stage == 6){
+        }else if(stage == 6){
 
             receive overflow;
 
@@ -151,30 +156,24 @@ TwoLiquidFillerController(
 
                 stage = 0;
 
-            }
-            else{
+            }else{
 
                 send reportOut(
                     "DONE|" + jobId + "|" +
                     workpieceId +
                     "|FILLER|OK|liquidA=" +
-                    target1 +
+                    actual1 +
                     "|liquidB=" +
-                    target2
+                    actual2
                 );
 
                 stage = 7;
             }
 
-        }
-        else if(stage == 7){
+        }else if(stage == 7){
 
             receive ackIn;
-
-            send reportOut(
-                "READY|FILLER"
-            );
-
+            send reportOut("READY|FILLER");
             stage = 0;
         }
 
