@@ -75,6 +75,19 @@ This hook is self-gating: it is a genuine no-op on `coordinator.xml`/`coordinato
 since their batch/recipe ids ("B1", console-typed ids) are not the numeric database ids
 only `IpBatchManagerCD` ever supplies.
 
+`IpBatchManagerModel` also recovers from an abrupt interruption on startup (IP report
+Section 7): before checking for pending demand, it queries `Batches` for any row still
+`RUNNING` -- which, at construction time, can only be work orphaned by a previous process
+that never drained it -- marks every bottle in that batch with no terminal `DONE` at
+`unloader` as `ABORTED`, and closes the batch as `FAULT`. This also fixed a latent bug in
+`Dao.markBottleAborted`: it used to `UPDATE ... WHERE status<>'DONE'`, which touches nothing
+for a bottle whose only rows are legitimate intermediate `DONE`s (e.g. it reached `loader`
+and `conveyor_in` but never `unloader`) -- `BottleEvents` is append-only, so marking a bottle
+aborted now appends one more row instead of trying to rewrite history that was never wrong
+in the first place. Also fixed: a drained batch is now actually marked `COMPLETED`
+(`dao.completeBatch`), which nothing previously called, so `Batches.status` no longer stays
+`RUNNING` forever even for batches that finished normally.
+
 ### If Eclipse still launches PowerShell
 
 Do not use **External Tools > Program > BuildAll** or the toolbar's previous-run

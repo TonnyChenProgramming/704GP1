@@ -95,12 +95,45 @@ public final class IpBatchManagerModel {
         twinConsumer.setDaemon(true);
         twinConsumer.start();
 
+        // Power-loss / abrupt-interruption recovery (IP report Section 7) -- must run before
+        // triggerBatchIfIdle() below, so a stale RUNNING batch from a killed previous process
+        // is reconciled before anything decides whether to activate a new one.
+        recoverIncompleteBatchesIfAny();
+
         // "On startup" per POS_BatchManager_Spec.md Section 4 -- picks up any orders left
         // PENDING from a previous run if -Dip.database points at a reused persistent file.
         // A no-op on the (default) fresh database. Enqueued like every other trigger, so it
         // runs on the DB worker thread rather than blocking the constructor's own caller
         // (the SystemJ reaction that does emit stateModel(new IpBatchManagerModel())).
         triggerBatchIfIdle();
+    }
+
+    /** Power-loss / abrupt-interruption recovery (IP report Section 7): "the system treats
+     * any bottle without a completed terminal event in BottleEvents as faulty upon restart,
+     * discards it, and resumes from the next bottle in the active batch." Any batch found
+     * RUNNING here was left by a PREVIOUS process -- this runs once, at construction, before
+     * this run has activated anything of its own, so RUNNING cannot yet mean "in flight in
+     * this process." Runs entirely on the DB worker thread like every other database access. */
+    private void recoverIncompleteBatchesIfAny() {
+        if (halted) { return; }
+        dbWorker.submit(new Runnable() {
+            public void run() {
+                try {
+                    for (int batchId : dao.queryRunningBatchIds()) {
+                        List<String> incomplete = dao.queryIncompleteBottlesInBatch(batchId, "unloader");
+                        for (String bottleId : incomplete) {
+                            dao.markBottleAborted(bottleId);
+                        }
+                        dao.markBatchFault(batchId);
+                        System.out.println("[IpBatchManager] Recovered batch " + batchId + " left RUNNING by a previous, "
+                                + "abruptly-ended process: " + incomplete.size() + " incomplete bottle(s) marked ABORTED, "
+                                + "batch closed as FAULT.");
+                    }
+                } catch (SQLException failure) {
+                    System.err.println("[IpBatchManager] Database error during startup recovery: " + failure.getMessage());
+                }
+            }
+        });
     }
 
     /** Recipes are a pre-existing catalog in the real design (POS validates against them,
@@ -315,12 +348,15 @@ public final class IpBatchManagerModel {
             try {
                 parsedBatchId = f.length > 1 ? Integer.parseInt(f[1]) : -1;
             } catch (NumberFormatException ignored) {
-                // Falls through with -1; onBatchDrained's argument is unused by BatchManager anyway.
+                // Falls through with -1; skips completeBatch() below rather than closing the wrong row.
             }
             final int drainedBatchId = parsedBatchId;
             dbWorker.submit(new Runnable() {
                 public void run() {
                     try {
+                        if (drainedBatchId >= 0) {
+                            dao.completeBatch(drainedBatchId);
+                        }
                         batchManager.onBatchDrained(drainedBatchId);
                     } catch (SQLException failure) {
                         System.err.println("[IpBatchManager] Could not process BatchDrained: " + failure.getMessage());

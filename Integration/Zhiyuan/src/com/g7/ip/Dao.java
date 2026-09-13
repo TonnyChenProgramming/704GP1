@@ -103,6 +103,30 @@ public class Dao {
         }
     }
 
+    /** Batches left RUNNING -- used at startup to find work orphaned by an abrupt interruption
+     * (Section 7, power-loss recovery). Any batch found RUNNING here was necessarily left by a
+     * PREVIOUS process: a fresh process has not activated anything of its own yet when this is
+     * called, and completeBatch()/markBatchFault() always resolve RUNNING before any later
+     * batch reuses this status for real in-process work. */
+    public List<Integer> queryRunningBatchIds() throws SQLException {
+        List<Integer> ids = new ArrayList<>();
+        try (Statement s = conn.createStatement();
+             ResultSet rs = s.executeQuery("SELECT batch_id FROM Batches WHERE status='RUNNING'")) {
+            while (rs.next()) ids.add(rs.getInt(1));
+        }
+        return ids;
+    }
+
+    /** Closes out a batch that did not complete normally (Section 7): its incomplete bottles
+     * have already been discarded via markBottleAborted before this is called. */
+    public void markBatchFault(int batchId) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "UPDATE Batches SET status='FAULT', completion_timestamp=CURRENT_TIMESTAMP WHERE batch_id=?")) {
+            ps.setInt(1, batchId);
+            ps.executeUpdate();
+        }
+    }
+
     // ---------- Orders (Table 3) ----------
 
     public int insertOrder(String customerPo, String customerId, String productId, int quantity) throws SQLException {
@@ -306,12 +330,30 @@ public class Dao {
         return out;
     }
 
+    /** Appends one more row recording this bottle's final disposition as ABORTED (Section 7,
+     * power-loss recovery). BottleEvents is append-only: a bottle interrupted mid-route has
+     * every existing row legitimately marked DONE (it genuinely completed those stations, just
+     * not the final one), so an UPDATE that excludes DONE rows -- the original approach here --
+     * touches nothing and silently fails to record the abort at all. Reads the bottle's own
+     * most recent row for its context (workpiece/order/batch/product/recipe/location) rather
+     * than requiring the caller to supply it again. A no-op if bottleId has no rows yet. */
     public void markBottleAborted(String bottleId) throws SQLException {
+        String workpieceId; Integer orderId; int batchId; String productId; Integer recipeId; String location;
         try (PreparedStatement ps = conn.prepareStatement(
-                "UPDATE BottleEvents SET status='ABORTED' WHERE bottle_id=? AND status<>'DONE'")) {
+                "SELECT workpiece_id, order_id, batch_id, product_id, recipe_id, location "
+                        + "FROM BottleEvents WHERE bottle_id=? ORDER BY event_id DESC LIMIT 1")) {
             ps.setString(1, bottleId);
-            ps.executeUpdate();
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return;
+                workpieceId = rs.getString(1);
+                int orderIdRaw = rs.getInt(2); orderId = rs.wasNull() ? null : orderIdRaw;
+                batchId = rs.getInt(3);
+                productId = rs.getString(4);
+                int recipeIdRaw = rs.getInt(5); recipeId = rs.wasNull() ? null : recipeIdRaw;
+                location = rs.getString(6);
+            }
         }
+        insertBottleEvent(bottleId, workpieceId, orderId, batchId, productId, recipeId, location, "ABORTED");
     }
 
     // ---------- Faults (Table 6) ----------
