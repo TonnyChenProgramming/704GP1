@@ -59,7 +59,13 @@ everyone waiting on the same product into a single batch, and activate it. This
 two-step shape (enter orders, then `go`) is what lets several orders for the same
 product actually merge into one batch: submitting an order and immediately
 activating it solo, with nothing else pending yet, cannot demonstrate cross-order
-merging. Two default recipes are seeded on first run. The database defaults to a
+merging. Two default recipes are seeded on first run and printed as a numbered
+catalog; the `recipe_id` prompt accepts one of those numbers, or `new` to define a
+custom recipe on the spot (prompts for doseA/doseB as 0-100 percentages) -- the new
+recipe is persisted to `Recipes` before the order is submitted against it, so it
+stays traceable from `BottleEvents`/`Faults` afterwards exactly like a seeded one;
+the schema's own `CHECK` constraint (proportions summing to at most 100%) is the
+final backstop if a nonsensical split ever reached the database. The database defaults to a
 fresh `build/ip-<uuid>.db` per run; pass `-Dip.database=build/ip-dev.db` (already
 set in this launch config) to reuse one fixed file across runs, e.g. for
 inspecting it with a SQLite viewer while the simulation is running.

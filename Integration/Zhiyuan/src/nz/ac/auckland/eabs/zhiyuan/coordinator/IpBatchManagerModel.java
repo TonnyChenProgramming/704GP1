@@ -61,6 +61,7 @@ public final class IpBatchManagerModel {
             assemblerRef = new DigitalTwinAssembler(daoRef, "unloader");
             detectorRef = new DeviationDetector(daoRef);
             seedDefaultRecipes(daoRef);
+            printRecipeCatalog(daoRef);
             final Dao daoForLink = daoRef;
             batchManagerRef = new BatchManager(daoRef, new BatchManager.CoordinatorLink() {
                 public void activateBatch(int batchId, int recipeId, String productId, int totalQuantity) {
@@ -153,6 +154,20 @@ public final class IpBatchManagerModel {
                 + "recipe_id=" + recipeY + " (PRODUCT_Y, 50/50, 500ml)");
     }
 
+    /** Prints the full recipe catalog so an order can pick "1, 2, 3, 4..." by id instead of
+     * having to already know one. Runs synchronously at construction time only (same
+     * justification as seedDefaultRecipes() above); printRecipeCatalog(dao) is called again,
+     * asynchronously on the DB worker, every time submitOrder() defines a new custom recipe,
+     * so the printed catalog never goes stale for the rest of the session. */
+    private void printRecipeCatalog(Dao dao) throws SQLException {
+        System.out.println("[IpBatchManager] Recipes on file:");
+        for (Dao.RecipeSummary recipe : dao.listRecipes()) {
+            System.out.println("  " + recipe.recipeId + ": " + recipe.productId + " "
+                    + Math.round(recipe.liquidA * 100) + "%/" + Math.round(recipe.liquidB * 100)
+                    + "% (" + recipe.bottleType + ")");
+        }
+    }
+
     private void readLoop() {
         while (!halted) {
             System.out.println("[IpBatchManager] Enter next purchase order, or 'go' to activate now (server validates; bad values come back Rejected):");
@@ -169,13 +184,22 @@ public final class IpBatchManagerModel {
             String productId = readField("  product_id: ");
             String quantityText = readField("  quantity [>0]: ");
             String bottleSpec = readField("  bottle_spec: ");
-            String recipeIdText = readField("  recipe_id [int, must already exist in Recipes]: ");
+            String recipeIdText = readField("  recipe_id [pick a number from the catalog above, or 'new' to define one]: ");
             if (customerId == null || productId == null || quantityText == null
                     || bottleSpec == null || recipeIdText == null) {
                 System.out.println("[IpBatchManager] Input closed; no more orders will be submitted.");
                 return;
             }
-            submitOrder(customerPo, customerId, productId, quantityText, bottleSpec, recipeIdText);
+            String doseAText = null, doseBText = null;
+            if (recipeIdText.equalsIgnoreCase("new")) {
+                doseAText = readField("  new recipe doseA [% 0-100]: ");
+                doseBText = readField("  new recipe doseB [% 0-100, doseA+doseB in 1-100]: ");
+                if (doseAText == null || doseBText == null) {
+                    System.out.println("[IpBatchManager] Input closed; no more orders will be submitted.");
+                    return;
+                }
+            }
+            submitOrder(customerPo, customerId, productId, quantityText, bottleSpec, recipeIdText, doseAText, doseBText);
         }
         System.out.println("[IpBatchManager] System is in FAULT/HOLD -- no further orders can be submitted this session.");
     }
@@ -196,21 +220,50 @@ public final class IpBatchManagerModel {
      * immediate console response; everything that touches the database is handed to the DB
      * worker and this method returns without blocking on it. */
     private void submitOrder(final String customerPo, final String customerId, final String productId,
-            String quantityText, final String bottleSpec, String recipeIdText) {
+            String quantityText, final String bottleSpec, String recipeIdText, String doseAText, String doseBText) {
         if (halted) { return; }
         final int quantity;
-        final int recipeId;
+        final boolean newRecipe = recipeIdText.equalsIgnoreCase("new");
+        final int recipeId;   // meaningful only when !newRecipe
+        final int doseA, doseB; // meaningful only when newRecipe
         try {
             quantity = Integer.parseInt(quantityText);
-            recipeId = Integer.parseInt(recipeIdText);
+            if (newRecipe) {
+                recipeId = 0;
+                doseA = Integer.parseInt(doseAText);
+                doseB = Integer.parseInt(doseBText);
+                if (doseA < 0 || doseB < 0 || doseA + doseB < 1 || doseA + doseB > 100) {
+                    System.out.println("[IpBatchManager] Rejected(doseA/doseB must each be >= 0 and sum to 1-100)");
+                    return;
+                }
+            } else {
+                recipeId = Integer.parseInt(recipeIdText);
+                doseA = 0; doseB = 0;
+            }
         } catch (NumberFormatException invalid) {
-            System.out.println("[IpBatchManager] Rejected(quantity and recipe_id must be integers)");
+            System.out.println("[IpBatchManager] Rejected(quantity/recipe_id/doseA/doseB must be integers)");
             return;
         }
         dbWorker.submit(new Runnable() {
             public void run() {
                 try {
-                    POS.SubmitResult result = pos.submitOrder(customerPo, customerId, productId, quantity, bottleSpec, recipeId);
+                    int resolvedRecipeId = recipeId;
+                    if (newRecipe) {
+                        try {
+                            resolvedRecipeId = dao.insertRecipe(productId, doseA / 100.0, doseB / 100.0, bottleSpec);
+                        } catch (SQLException failure) {
+                            System.out.println("[IpBatchManager] Rejected(could not create recipe: " + failure.getMessage() + ")");
+                            return;
+                        }
+                        System.out.println("[IpBatchManager] Created recipe_id=" + resolvedRecipeId + " (" + productId
+                                + " " + doseA + "%/" + doseB + "%, " + bottleSpec + ") -- traceable in Recipes from now on.");
+                        try {
+                            printRecipeCatalog(dao);
+                        } catch (SQLException ignored) {
+                            // Catalog re-print is a convenience only; the order submission below still proceeds.
+                        }
+                    }
+                    POS.SubmitResult result = pos.submitOrder(customerPo, customerId, productId, quantity, bottleSpec, resolvedRecipeId);
                     System.out.println("[IpBatchManager] " + result
                             + (result.accepted ? " -- stored as PENDING; type 'go' once you're done entering orders for this batch." : ""));
                 } catch (SQLException failure) {

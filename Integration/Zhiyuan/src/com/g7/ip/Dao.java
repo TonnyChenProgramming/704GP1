@@ -83,6 +83,37 @@ public class Dao {
         }
     }
 
+    /** One row of the recipe catalog, for printing a pick-list at order entry. */
+    public static class RecipeSummary {
+        public final int recipeId;
+        public final String productId;
+        public final double liquidA;
+        public final double liquidB;
+        public final String bottleType;
+        public RecipeSummary(int recipeId, String productId, double liquidA, double liquidB, String bottleType) {
+            this.recipeId = recipeId;
+            this.productId = productId;
+            this.liquidA = liquidA;
+            this.liquidB = liquidB;
+            this.bottleType = bottleType;
+        }
+    }
+
+    /** The full recipe catalog, oldest first -- lets a caller show "1, 2, 3, 4..." before
+     * asking which one an order uses, rather than the customer having to already know an id. */
+    public List<RecipeSummary> listRecipes() throws SQLException {
+        List<RecipeSummary> out = new ArrayList<>();
+        try (Statement s = conn.createStatement();
+             ResultSet rs = s.executeQuery(
+                     "SELECT recipe_id, product_id, liquid_a_proportion, liquid_b_proportion, bottle_type "
+                             + "FROM Recipes ORDER BY recipe_id")) {
+            while (rs.next()) {
+                out.add(new RecipeSummary(rs.getInt(1), rs.getString(2), rs.getDouble(3), rs.getDouble(4), rs.getString(5)));
+            }
+        }
+        return out;
+    }
+
     // ---------- Batches (Table 2) ----------
 
     public int insertBatch(int recipeId, String productId) throws SQLException {
