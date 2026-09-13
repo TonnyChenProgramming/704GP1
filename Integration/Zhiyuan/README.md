@@ -64,6 +64,17 @@ fresh `build/ip-<uuid>.db` per run; pass `-Dip.database=build/ip-dev.db` (alread
 set in this launch config) to reuse one fixed file across runs, e.g. for
 inspecting it with a SQLite viewer while the simulation is running.
 
+`IntegratedCoordinator` also publishes every confirmed transition it already gives
+Eric's Tracker (DONE/FAULT/ABORTED) to `TwinEventBus`, a package-private, non-blocking
+bridge. When `RunCoordinatorIp` is running, `IpBatchManagerModel` drains this bus on
+its own consumer thread and feeds a real `DigitalTwinAssembler`/`DeviationDetector`
+(IP report Section 4/7) -- so `BottleEvents`/`Faults` now fill from an actual production
+run, not only from `TestHarness`'s stub data, and a deviation check runs automatically
+the moment a bottle reaches `unloader`, printed as `[DigitalTwin] ... deviated=...`.
+This hook is self-gating: it is a genuine no-op on `coordinator.xml`/`coordinator_real.xml`,
+since their batch/recipe ids ("B1", console-typed ids) are not the numeric database ids
+only `IpBatchManagerCD` ever supplies.
+
 ### If Eclipse still launches PowerShell
 
 Do not use **External Tools > Program > BuildAll** or the toolbar's previous-run

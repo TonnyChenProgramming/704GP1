@@ -3,10 +3,15 @@ package nz.ac.auckland.eabs.zhiyuan.coordinator;
 import com.g7.ip.BatchManager;
 import com.g7.ip.Dao;
 import com.g7.ip.Db;
+import com.g7.ip.DeviationDetector;
+import com.g7.ip.DigitalTwinAssembler;
 import com.g7.ip.POS;
+import com.g7.ip.TrackerFieldChange;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -25,9 +30,17 @@ import java.util.UUID;
  * Tracker only ever seeing a single representative orderId.
  */
 public final class IpBatchManagerModel {
+    /** The real production route, in station order -- matches IntegratedCoordinator's own
+     * ROUTE/twinLocationFor labels exactly, so a bottle's persisted BottleEvents sequence can
+     * be compared against it (IP report Section 7, recipe-deviation detection). */
+    private static final List<String> EXPECTED_STATIONS = Arrays.asList(
+            "loader", "conveyor_in", "filler", "lid", "capper", "conveyor_out", "labeller", "unloader");
+
     private final Dao dao;
     private final POS pos;
     private final BatchManager batchManager;
+    private final DigitalTwinAssembler assembler;
+    private final DeviationDetector detector;
     private final DbWorker dbWorker = new DbWorker();
 
     private String pendingFrame = null;
@@ -38,11 +51,15 @@ public final class IpBatchManagerModel {
         Dao daoRef = null;
         POS posRef = null;
         BatchManager batchManagerRef = null;
+        DigitalTwinAssembler assemblerRef = null;
+        DeviationDetector detectorRef = null;
         try {
             String dbPath = System.getProperty("ip.database", "build/ip-" + UUID.randomUUID() + ".db");
             Connection conn = Db.open(dbPath, "sql/schema.sql");
             daoRef = new Dao(conn);
             posRef = new POS(daoRef);
+            assemblerRef = new DigitalTwinAssembler(daoRef, "unloader");
+            detectorRef = new DeviationDetector(daoRef);
             seedDefaultRecipes(daoRef);
             final Dao daoForLink = daoRef;
             batchManagerRef = new BatchManager(daoRef, new BatchManager.CoordinatorLink() {
@@ -58,6 +75,8 @@ public final class IpBatchManagerModel {
         this.dao = daoRef;
         this.pos = posRef;
         this.batchManager = batchManagerRef;
+        this.assembler = assemblerRef;
+        this.detector = detectorRef;
 
         SharedConsole.ensureStarted();
         Thread reader = new Thread(new Runnable() {
@@ -65,6 +84,16 @@ public final class IpBatchManagerModel {
         }, "ip-batch-manager-console");
         reader.setDaemon(true);
         reader.start();
+
+        // Drains TwinEventBus -- the real per-bottle events IntegratedCoordinator publishes
+        // as it runs -- and feeds them to the Digital Twin Assembler, entirely on the DB
+        // worker thread (IP report Section 4: assemble the twin from the GP's real signals,
+        // never on a SystemJ-facing thread).
+        Thread twinConsumer = new Thread(new Runnable() {
+            public void run() { twinConsumerLoop(); }
+        }, "ip-twin-consumer");
+        twinConsumer.setDaemon(true);
+        twinConsumer.start();
 
         // "On startup" per POS_BatchManager_Spec.md Section 4 -- picks up any orders left
         // PENDING from a previous run if -Dip.database points at a reused persistent file.
@@ -184,6 +213,50 @@ public final class IpBatchManagerModel {
                 }
             }
         });
+    }
+
+    /** Drains TwinEventBus one event at a time and hands each to the DB worker -- this loop
+     * itself never touches the database, only IntegratedCoordinator's already-fast, in-memory
+     * TwinEventBus.take(). Runs for the lifetime of the process; there is nothing to stop it
+     * for, matching every other background loop in this class. */
+    private void twinConsumerLoop() {
+        while (true) {
+            final TwinEventBus.Event event;
+            try {
+                event = TwinEventBus.take();
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+            if (halted) { continue; }
+            dbWorker.submit(new Runnable() {
+                public void run() { handleTwinEvent(event); }
+            });
+        }
+    }
+
+    /** Runs on the DB worker thread. Admission must be recorded before any transition for the
+     * same workpieceId is processed -- true here because IntegratedCoordinator only ever
+     * publishes a workpiece's admission event, then later transitions, in that order, and
+     * TwinEventBus is a single FIFO queue drained by one consumer. */
+    private void handleTwinEvent(TwinEventBus.Event event) {
+        try {
+            if (event.admission) {
+                String bottleId = assembler.admitBottle(event.workpieceId, event.batchId, event.recipeId, event.productId);
+                System.out.println("[DigitalTwin] Admitted " + event.workpieceId + " as " + bottleId + " (batch " + event.batchId + ")");
+                return;
+            }
+            assembler.onFieldChange(new TrackerFieldChange(event.workpieceId, event.batchId, event.location, event.location, event.status));
+            if ("unloader".equals(event.location) && "DONE".equals(event.status)) {
+                String bottleId = assembler.bottleIdFor(event.workpieceId);
+                DeviationDetector.Result result = detector.checkStationSequence(bottleId, EXPECTED_STATIONS);
+                System.out.println("[DigitalTwin] " + bottleId + " (" + event.workpieceId + "): deviated=" + result.deviated + " -> " + result.reason);
+            }
+        } catch (SQLException failure) {
+            System.err.println("[DigitalTwin] Database error handling event for " + event.workpieceId + ": " + failure.getMessage());
+        } catch (IllegalStateException notAdmitted) {
+            System.err.println("[DigitalTwin] " + notAdmitted.getMessage());
+        }
     }
 
     /** com.g7.ip.BatchManager.CoordinatorLink callback -- resolves the batch's recipe into
