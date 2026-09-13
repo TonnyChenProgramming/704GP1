@@ -16,5 +16,5 @@
     <stringAttribute key="org.eclipse.jdt.launching.MODULE_NAME" value="CoordinatorSystemJ"/>
     <stringAttribute key="org.eclipse.jdt.launching.PROJECT_ATTR" value="CoordinatorSystemJ"/>
     <stringAttribute key="org.eclipse.jdt.launching.VM_ARGUMENTS" value="-Xmx768m"/>
-    <stringAttribute key="org.eclipse.jdt.launching.WORKING_DIRECTORY" value="${workspace_loc:CoordinatorSystemJ}"/>
+    <stringAttribute key="org.eclipse.jdt.launching.WORKING_DIRECTORY" value="${workspace_loc:/CoordinatorSystemJ}"/>
 </launchConfiguration>
