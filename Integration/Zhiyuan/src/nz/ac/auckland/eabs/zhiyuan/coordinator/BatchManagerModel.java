@@ -1,6 +1,5 @@
 package nz.ac.auckland.eabs.zhiyuan.coordinator;
 
-import java.util.Scanner;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
@@ -18,6 +17,7 @@ public final class BatchManagerModel {
     private volatile boolean halted = false;
 
     public BatchManagerModel() {
+        SharedConsole.ensureStarted();
         Thread reader = new Thread(new Runnable() {
             public void run() { readLoop(); }
         }, "batch-manager-console");
@@ -25,17 +25,19 @@ public final class BatchManagerModel {
         reader.start();
     }
 
+    /** Lines arrive from SharedConsole, which also feeds SafetyMonitorModel from the
+     * same physical console -- hazard/clear/reset are intercepted there and never reach
+     * this queue, so this loop's shape is unchanged from owning its own Scanner. */
     private void readLoop() {
-        Scanner in = new Scanner(System.in);
         while (!halted) {
             System.out.println("[BatchManager] Enter next order (server validates; bad values come back REJECTED):");
-            String batchId = readField(in, "  batchId [A-Za-z0-9_.-]{1,60}: ");
-            String recipeId = readField(in, "  recipeId [A-Za-z0-9_.-]{1,60}: ");
-            String productId = readField(in, "  productId [A-Za-z0-9_.-]{1,60}: ");
-            String quantity = readField(in, "  quantity [1-10000]: ");
-            String doseA = readField(in, "  doseA [int >= 0]: ");
-            String doseB = readField(in, "  doseB [int >= 0, doseA+doseB in 1-100]: ");
-            String orderId = readField(in, "  orderId [A-Za-z0-9_.-]{1,60}: ");
+            String batchId = readField("  batchId [A-Za-z0-9_.-]{1,60}: ");
+            String recipeId = readField("  recipeId [A-Za-z0-9_.-]{1,60}: ");
+            String productId = readField("  productId [A-Za-z0-9_.-]{1,60}: ");
+            String quantity = readField("  quantity [1-10000]: ");
+            String doseA = readField("  doseA [int >= 0]: ");
+            String doseB = readField("  doseB [int >= 0, doseA+doseB in 1-100]: ");
+            String orderId = readField("  orderId [A-Za-z0-9_.-]{1,60}: ");
             if (batchId == null || recipeId == null || productId == null || quantity == null
                     || doseA == null || doseB == null || orderId == null) {
                 System.out.println("[BatchManager] Input closed; no more orders will be submitted.");
@@ -54,10 +56,16 @@ public final class BatchManagerModel {
     }
 
     /** Returns the typed line, or null on end-of-input (never loops on EOF). */
-    private String readField(Scanner in, String label) {
+    private String readField(String label) {
         System.out.print(label);
         System.out.flush();
-        return in.hasNextLine() ? in.nextLine().trim() : null;
+        try {
+            String line = SharedConsole.orderLines().take();
+            return SharedConsole.EOF_MARKER.equals(line) ? null : line.trim();
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return null;
+        }
     }
 
     /** Non-blocking: called once per SystemJ tick. Never sends a second batch
