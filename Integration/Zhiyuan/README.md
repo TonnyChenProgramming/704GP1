@@ -26,7 +26,7 @@ changes/reasons, safety limitations and team handoff.
    PowerShell execution-policy change.
 4. Click **Run**, then wait for **ECLIPSE SYSTEMJ BUILD PASSED**. This compiles
    Java helpers first, invokes the course SystemJ compiler, compiles/checks all
-   23 generated CD classes, then publishes the generated Java. It can take a
+   25 generated CD classes, then publishes the generated Java. It can take a
    few minutes. It does not automatically run the simulation.
 5. Press **F5** again and let Eclipse finish its Java build (or use **Project >
    Build Project**). Check **Problems** for errors. Generated Java is in
@@ -38,6 +38,11 @@ changes/reasons, safety limitations and team handoff.
    for the real-device fault harness after building. Use **VerifyIntegration**
    for a fresh build plus all model/runtime/archive/fault checks, still entirely
    through Java; it finishes with **ECLIPSE SYSTEMJ BUILD AND TEST PASSED**.
+
+`RunCoordinatorReal` replaces the scripted batch harness with the interactive
+console `BatchManagerCD`. Enter the seven requested order fields; after `DRAINED`
+it accepts another order and remains running until manually terminated. This is
+an interactive integration profile, not yet a connection to the actual POS CD.
 
 ### If Eclipse still launches PowerShell
 

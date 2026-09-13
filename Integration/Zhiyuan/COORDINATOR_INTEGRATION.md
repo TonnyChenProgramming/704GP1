@@ -5,7 +5,7 @@
 Verified locally with JDK 26 and the bundled course SystemJ compiler/runtime:
 
 - 544 coordinator model assertions.
-- 23 generated CD classes compiled; each runtime configuration connects 22 CDs.
+- 25 generated CD classes compiled; runtime configurations select the required batch/safety CDs.
 - Normal runtime completed B1 (8 bottles, 20/80) before B2 (2 bottles, 35/65).
 - 72 separate-JVM archive assertions for ten completed bottles and eight operations each.
 - Actual LID plant/shim fault returned `FAULT|F1|LID_PLANT_SIMULATED_JAM`; no completed archive was created for that run.
@@ -70,7 +70,7 @@ pwsh -NoProfile -File Integration/Zhiyuan/scripts/test-coordinator.ps1 -Gui
 pwsh -NoProfile -File Integration/Zhiyuan/scripts/test-coordinator.ps1 -SystemJLibPath 'D:\path\to\lib'
 ```
 
-Each run has its own `Integration/Zhiyuan/build/verification-<id>/` with fresh classes, generated Java, an archive and, on full success, `acceptance.log`. The script runs model tests, compiles 23 CD classes (two alternative batch harnesses), runs 22-CD real controller/plant integration, then reopens all ten archived records in a separate JVM. It also runs a real simulated LID fault and checks that the batch returns FAULT, not DRAINED. Do not infer success from compiler exit code alone. A failed run has no success log.
+Each run has its own `Integration/Zhiyuan/build/verification-<id>/` with fresh classes, generated Java, an archive and, on full success, `acceptance.log`. The script runs model tests, compiles 25 CD classes (scripted/interactive batch and safety sources), runs the real controller/plant integration, then reopens all ten archived records in a separate JVM. It also runs a real simulated LID fault and checks that the batch returns FAULT, not DRAINED. Do not infer success from compiler exit code alone. A failed run has no success log.
 
 The integration batch harness rejects one malformed request, then runs eight bottles with 20/80 and two bottles with 35/65. These are **simulation units**, not mL. The current filler plant capacity is 100. The run is bounded and terminates automatically. Generated files are build products, not source to edit or commit.
 
