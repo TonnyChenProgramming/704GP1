@@ -26,7 +26,7 @@ changes/reasons, safety limitations and team handoff.
    PowerShell execution-policy change.
 4. Click **Run**, then wait for **ECLIPSE SYSTEMJ BUILD PASSED**. This compiles
    Java helpers first, invokes the course SystemJ compiler, compiles/checks all
-   25 generated CD classes, then publishes the generated Java. It can take a
+   26 generated CD classes, then publishes the generated Java. It can take a
    few minutes. It does not automatically run the simulation.
 5. Press **F5** again and let Eclipse finish its Java build (or use **Project >
    Build Project**). Check **Problems** for errors. Generated Java is in
@@ -43,6 +43,16 @@ changes/reasons, safety limitations and team handoff.
 console `BatchManagerCD`. Enter the seven requested order fields; after `DRAINED`
 it accepts another order and remains running until manually terminated. This is
 an interactive integration profile, not yet a connection to the actual POS CD.
+
+`RunCoordinatorIp` replaces `BatchManagerCD` with `IpBatchManagerCD`, which wires
+the IP's real persistence layer (`com.g7.ip.POS`/`BatchManager`/`Dao`, synchronous
+Stage-1 JDBC calls) in front of the same Coordinator: enter a customer purchase
+order (customer_po/customer_id/product_id/quantity/bottle_spec/recipe_id) and it
+is validated and written to SQLite before being consolidated into a batch and
+activated. Two default recipes are seeded on first run. The database defaults to
+a fresh `build/ip-<uuid>.db` per run; pass `-Dip.database=build/ip-dev.db` (already
+set in this launch config) to reuse one fixed file across runs, e.g. for
+inspecting it with a SQLite viewer while the simulation is running.
 
 ### If Eclipse still launches PowerShell
 

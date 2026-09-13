@@ -5,7 +5,7 @@
 Verified locally with JDK 26 and the bundled course SystemJ compiler/runtime:
 
 - 544 coordinator model assertions.
-- 25 generated CD classes compiled; runtime configurations select the required batch/safety CDs.
+- 26 generated CD classes compiled; runtime configurations select the required batch/safety/IP-persistence CDs.
 - Normal runtime completed B1 (8 bottles, 20/80) before B2 (2 bottles, 35/65).
 - 72 separate-JVM archive assertions for ten completed bottles and eight operations each.
 - Actual LID plant/shim fault returned `FAULT|F1|LID_PLANT_SIMULATED_JAM`; no completed archive was created for that run.
