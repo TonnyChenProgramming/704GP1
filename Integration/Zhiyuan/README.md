@@ -45,9 +45,13 @@ it accepts another order and remains running until manually terminated. This is
 an interactive integration profile, not yet a connection to the actual POS CD.
 
 `RunCoordinatorIp` replaces `BatchManagerCD` with `IpBatchManagerCD`, which wires
-the IP's real persistence layer (`com.g7.ip.POS`/`BatchManager`/`Dao`, synchronous
-Stage-1 JDBC calls) in front of the same Coordinator: enter a customer purchase
-order (customer_po/customer_id/product_id/quantity/bottle_spec/recipe_id) and it
+the IP's real persistence layer (`com.g7.ip.POS`/`BatchManager`/`Dao`) in front of
+the same Coordinator. Stage 2 (IP report Section 6/10): every call that touches
+the database runs on a dedicated `DbWorker` thread (`nz...coordinator.DbWorker`),
+never on the console reader thread or the SystemJ tick thread that delivers
+`batchDrainedOut` results -- submitting an order, typing `go`, and processing a
+drained batch all just enqueue a request and return immediately. Enter a customer
+purchase order (customer_po/customer_id/product_id/quantity/bottle_spec/recipe_id) and it
 is validated and stored as a PENDING row in `Orders` -- it is NOT activated yet.
 Type `go` (instead of a customer_po) once you are done entering orders for this
 round; only then does the Batch Manager query all PENDING orders, consolidate

@@ -11,13 +11,12 @@ import java.util.UUID;
 
 /**
  * Real, database-backed batch source for CoordinatorCD.activateBatchIn/batchDrainedOut --
- * the IP's Stage-1 persistence layer (com.g7.ip.*), wired directly (synchronous JDBC calls,
- * per the IP report Section 10 first stage) instead of BatchManagerModel's raw console
- * strings. A customer purchase order is validated and written to SQLite by POS; com.g7.ip.
- * BatchManager consolidates all pending orders for one product (possibly from several
- * customers) into a single batch; this class resolves that batch's recipe into concrete
- * doses and sends the SAME ACTIVATE protocol frame BatchManagerCD already sends, so
- * CoordinatorCD itself needs no changes.
+ * the IP's persistence layer (com.g7.ip.*). Stage 2 (IP report Section 6/10): every call
+ * that touches Dao/POS/BatchManager -- and therefore the JDBC Connection -- runs on the
+ * dedicated DbWorker thread, never on the console reader thread or the SystemJ tick thread
+ * that invokes resultReceived(). Submitting an order, triggering a batch check, and
+ * processing BatchDrained all just enqueue a Runnable and return immediately; the
+ * assembly/admission logic itself (Stage 1, already validated) is unchanged.
  *
  * The ACTIVATE frame still carries one orderId label, because Eric's Tracker requires one --
  * but that label is display-only. Real per-bottle order attribution is entirely
@@ -29,6 +28,7 @@ public final class IpBatchManagerModel {
     private final Dao dao;
     private final POS pos;
     private final BatchManager batchManager;
+    private final DbWorker dbWorker = new DbWorker();
 
     private String pendingFrame = null;
     private String awaitingResultFor = null; // null = no batch currently in flight
@@ -68,17 +68,21 @@ public final class IpBatchManagerModel {
 
         // "On startup" per POS_BatchManager_Spec.md Section 4 -- picks up any orders left
         // PENDING from a previous run if -Dip.database points at a reused persistent file.
-        // A no-op on the (default) fresh database.
+        // A no-op on the (default) fresh database. Enqueued like every other trigger, so it
+        // runs on the DB worker thread rather than blocking the constructor's own caller
+        // (the SystemJ reaction that does emit stateModel(new IpBatchManagerModel())).
         triggerBatchIfIdle();
     }
 
     /** Recipes are a pre-existing catalog in the real design (POS validates against them,
      * never creates them) -- but a fresh database starts with none, which would reject every
-     * order. Seeds two convenience recipes for interactive testing. Safe to call on every
-     * run because the default ip.database path is a fresh, uniquely-named file each time; if
-     * -Dip.database points at a persistent file reused across runs, this will add duplicate
-     * rows each run (findRecipeIdForProduct always picks the newest, so this is harmless to
-     * behaviour, just untidy). */
+     * order. Seeds two convenience recipes for interactive testing. Runs synchronously in the
+     * constructor, before any other thread can see this object -- unlike every other database
+     * access below, there is no concurrency risk to hand off to the DB worker for. Safe to
+     * call on every run because the default ip.database path is a fresh, uniquely-named file
+     * each time; if -Dip.database points at a persistent file reused across runs, this will
+     * add duplicate rows each run (findRecipeIdForProduct always picks the newest, so this is
+     * harmless to behaviour, just untidy). */
     private void seedDefaultRecipes(Dao dao) throws SQLException {
         int recipeX = dao.insertRecipe("PRODUCT_X", 0.60, 0.40, "500ml");
         int recipeY = dao.insertRecipe("PRODUCT_Y", 0.50, 0.50, "500ml");
@@ -126,11 +130,14 @@ public final class IpBatchManagerModel {
         }
     }
 
-    private synchronized void submitOrder(String customerPo, String customerId, String productId,
-            String quantityText, String bottleSpec, String recipeIdText) {
+    /** Validates the two integer fields inline (cheap, no database access) so a typo gets an
+     * immediate console response; everything that touches the database is handed to the DB
+     * worker and this method returns without blocking on it. */
+    private void submitOrder(final String customerPo, final String customerId, final String productId,
+            String quantityText, final String bottleSpec, String recipeIdText) {
         if (halted) { return; }
-        int quantity;
-        int recipeId;
+        final int quantity;
+        final int recipeId;
         try {
             quantity = Integer.parseInt(quantityText);
             recipeId = Integer.parseInt(recipeIdText);
@@ -138,58 +145,83 @@ public final class IpBatchManagerModel {
             System.out.println("[IpBatchManager] Rejected(quantity and recipe_id must be integers)");
             return;
         }
-        try {
-            POS.SubmitResult result = pos.submitOrder(customerPo, customerId, productId, quantity, bottleSpec, recipeId);
-            System.out.println("[IpBatchManager] " + result
-                    + (result.accepted ? " -- stored as PENDING; type 'go' once you're done entering orders for this batch." : ""));
-        } catch (SQLException failure) {
-            System.out.println("[IpBatchManager] Database error while submitting order: " + failure.getMessage());
-        }
+        dbWorker.submit(new Runnable() {
+            public void run() {
+                try {
+                    POS.SubmitResult result = pos.submitOrder(customerPo, customerId, productId, quantity, bottleSpec, recipeId);
+                    System.out.println("[IpBatchManager] " + result
+                            + (result.accepted ? " -- stored as PENDING; type 'go' once you're done entering orders for this batch." : ""));
+                } catch (SQLException failure) {
+                    System.out.println("[IpBatchManager] Database error while submitting order: " + failure.getMessage());
+                }
+            }
+        });
     }
 
     /** Explicit trigger (console 'go', or once at startup) -- deliberately NOT called from
      * submitOrder() itself, so several PENDING orders for the same product can accumulate
      * and be merged into one batch (POS_BatchManager_Spec.md Section 4/7 cross-order
      * scheduling) instead of the first order always being activated alone before a second
-     * one is even entered. */
-    private synchronized void triggerBatchIfIdle() {
-        if (halted || batchManager == null) { return; }
-        if (awaitingResultFor != null) {
-            System.out.println("[IpBatchManager] A batch is already in flight -- pending orders will be picked up once it drains.");
-            return;
-        }
-        try {
-            batchManager.start();
-        } catch (SQLException failure) {
-            System.out.println("[IpBatchManager] Database error while checking pending demand: " + failure.getMessage());
-        }
+     * one is even entered. Enqueued on the DB worker like every other database-touching
+     * operation; the in-flight check happens there too, so it is read consistently with
+     * whatever the worker itself last set it to. */
+    private void triggerBatchIfIdle() {
+        if (halted) { return; }
+        dbWorker.submit(new Runnable() {
+            public void run() {
+                boolean inFlight;
+                synchronized (IpBatchManagerModel.this) {
+                    inFlight = halted || awaitingResultFor != null;
+                }
+                if (inFlight) {
+                    System.out.println("[IpBatchManager] A batch is already in flight -- pending orders will be picked up once it drains.");
+                    return;
+                }
+                try {
+                    batchManager.start();
+                } catch (SQLException failure) {
+                    System.out.println("[IpBatchManager] Database error while checking pending demand: " + failure.getMessage());
+                }
+            }
+        });
     }
 
     /** com.g7.ip.BatchManager.CoordinatorLink callback -- resolves the batch's recipe into
-     * concrete doses and stashes the ACTIVATE frame for nextActivate() to pick up. Always
-     * called synchronously from within a submitOrder()/resultReceived() call on the console
-     * thread or the SystemJ tick thread, never concurrently (this instance is the only
-     * caller of batchManager.start()/onBatchDrained()). */
-    private synchronized void onActivateBatch(Dao dao, int batchId, int recipeId, String productId, int totalQuantity) {
+     * concrete doses and stashes the ACTIVATE frame for nextActivate() to pick up. Called
+     * synchronously from within batchManager.start()/onBatchDrained(), which (since Stage 2)
+     * only ever run as a Runnable submitted to the DB worker -- so this always executes on
+     * the DB worker thread too, never on the console thread or the SystemJ tick thread.
+     * The JDBC calls run with no lock held at all, so nextActivate()/resultReceived() on the
+     * SystemJ tick thread can never be made to wait on a database round trip -- only the
+     * final two-field handoff is synchronized, and that is pure in-memory assignment. */
+    private void onActivateBatch(Dao dao, int batchId, int recipeId, String productId, int totalQuantity) {
+        Dao.RecipeInfo recipe;
+        Integer orderId;
         try {
-            Dao.RecipeInfo recipe = dao.getRecipe(recipeId);
+            recipe = dao.getRecipe(recipeId);
             if (recipe == null) {
                 System.err.println("[IpBatchManager] Batch " + batchId + " references unknown recipe " + recipeId + " -- cannot activate.");
                 return;
             }
-            int doseA = (int) Math.round(recipe.liquidA * 100);
-            int doseB = (int) Math.round(recipe.liquidB * 100);
-            Integer orderId = dao.firstOrderIdForBatch(batchId);
-            String orderLabel = orderId == null ? ("BATCH-" + batchId) : String.valueOf(orderId);
-            pendingFrame = "ACTIVATE|" + batchId + "|" + recipeId + "|" + productId + "|"
-                    + totalQuantity + "|" + doseA + "|" + doseB + "|" + orderLabel;
-            awaitingResultFor = String.valueOf(batchId);
+            orderId = dao.firstOrderIdForBatch(batchId);
         } catch (SQLException failure) {
             System.err.println("[IpBatchManager] Could not resolve recipe for batch " + batchId + ": " + failure.getMessage());
+            return;
+        }
+        int doseA = (int) Math.round(recipe.liquidA * 100);
+        int doseB = (int) Math.round(recipe.liquidB * 100);
+        String orderLabel = orderId == null ? ("BATCH-" + batchId) : String.valueOf(orderId);
+        String frame = "ACTIVATE|" + batchId + "|" + recipeId + "|" + productId + "|"
+                + totalQuantity + "|" + doseA + "|" + doseB + "|" + orderLabel;
+        synchronized (this) {
+            pendingFrame = frame;
+            awaitingResultFor = String.valueOf(batchId);
         }
     }
 
-    /** Non-blocking: called once per SystemJ tick, same contract as BatchManagerModel. */
+    /** Non-blocking: called once per SystemJ tick, same contract as BatchManagerModel. Pure
+     * in-memory field access -- never touches the database, so this needs no DB worker
+     * involvement regardless of Stage 1 or Stage 2. */
     public synchronized String nextActivate() {
         if (halted || pendingFrame == null) { return ""; }
         String frame = pendingFrame;
@@ -197,16 +229,31 @@ public final class IpBatchManagerModel {
         return frame;
     }
 
+    /** Called directly from the SystemJ tick thread (ip_batch_manager.sysj's
+     * batchResultIn reaction). Stage 2: the only database-touching branch (DRAINED) is
+     * handed to the DB worker and this method returns immediately either way, so the
+     * SystemJ reaction that calls it is never blocked on a JDBC round trip. */
     public synchronized void resultReceived(String result) {
         awaitingResultFor = null;
         if (result.startsWith("DRAINED|")) {
             System.out.println("[IpBatchManager] " + result + " -- checking for more pending demand.");
             String[] f = result.split("\\|", -1);
+            int parsedBatchId = -1;
             try {
-                batchManager.onBatchDrained(f.length > 1 ? Integer.parseInt(f[1]) : -1);
-            } catch (RuntimeException | SQLException failure) {
-                System.err.println("[IpBatchManager] Could not process BatchDrained: " + failure.getMessage());
+                parsedBatchId = f.length > 1 ? Integer.parseInt(f[1]) : -1;
+            } catch (NumberFormatException ignored) {
+                // Falls through with -1; onBatchDrained's argument is unused by BatchManager anyway.
             }
+            final int drainedBatchId = parsedBatchId;
+            dbWorker.submit(new Runnable() {
+                public void run() {
+                    try {
+                        batchManager.onBatchDrained(drainedBatchId);
+                    } catch (SQLException failure) {
+                        System.err.println("[IpBatchManager] Could not process BatchDrained: " + failure.getMessage());
+                    }
+                }
+            });
         } else if (result.startsWith("REJECTED|")) {
             System.out.println("[IpBatchManager] " + result + " -- unexpected: POS should already have validated this batch.");
         } else if (result.startsWith("FAULT|")) {
