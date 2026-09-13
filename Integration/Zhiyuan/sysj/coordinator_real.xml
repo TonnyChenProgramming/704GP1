@@ -64,6 +64,8 @@
             <iChannel Name="dose1Done" From="TwoLiquidFillerPlant.dose1Done" />
             <iChannel Name="dose2Done" From="TwoLiquidFillerPlant.dose2Done" />
             <iChannel Name="overflow" From="TwoLiquidFillerPlant.overflow" />
+            <iChannel Name="currentAmountA" From="TwoLiquidFillerPlant.currentAmountA" />
+			<iChannel Name="currentAmountB" From="TwoLiquidFillerPlant.currentAmountB" />
         </ClockDomain>
         <ClockDomain Name="LidLoaderShimCD" Class="LidLoaderShimCD">
             <iChannel Name="commandIn" From="CoordinatorCD.lidJobOut" />
@@ -124,18 +126,18 @@
             <oChannel Name="dose1Done" To="TwoLiquidFillerController.dose1Done" />
             <oChannel Name="dose2Done" To="TwoLiquidFillerController.dose2Done" />
             <oChannel Name="overflow" To="TwoLiquidFillerController.overflow" />
+            <oChannel Name="currentAmountA" To="TwoLiquidFillerController.currentAmountA" />
+			<oChannel Name="currentAmountB" To="TwoLiquidFillerController.currentAmountB" />
         </ClockDomain>
         <ClockDomain Name="RotaryTableController" Class="RotaryTableController">
             <oChannel Name="rotate" To="RotaryTablePlant.rotate" />
             <iChannel Name="aligned" From="RotaryTablePlant.aligned" />
-            <iChannel Name="occupancy" From="RotaryTablePlant.occupancy" />
             <iSignal Name="rotateTrigger" Class="com.systemj.ipc.SimpleServer" IP="127.0.0.1" Port="30101" />
             <oSignal Name="tableAligned" To="CoordinatorCD.tableAligned" Class="com.systemj.ipc.SimpleClient" IP="127.0.0.1" Port="30102" />
         </ClockDomain>
         <ClockDomain Name="RotaryTablePlant" Class="RotaryTablePlant">
             <iChannel Name="rotate" From="RotaryTableController.rotate" />
             <oChannel Name="aligned" To="RotaryTableController.aligned" />
-            <oChannel Name="occupancy" To="RotaryTableController.occupancy" />
         </ClockDomain>
         <ClockDomain Name="LidLoaderControllerCD" Class="LidLoaderControllerCD">
             <iChannel Name="jobIn" From="LidLoaderShimCD.deviceJobOut" />
