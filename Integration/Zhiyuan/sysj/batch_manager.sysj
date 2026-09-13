@@ -1,0 +1,40 @@
+// Real, interactive order entry for CoordinatorCD.activateBatchIn/batchDrainedOut,
+// replacing CoordinatorBatchHarnessCD's three scripted test messages for actual
+// use. Same "one shared Java object behind a signal, thin SystemJ reactions
+// only relay channel <-> method calls" shape as CoordinatorCD itself (see
+// coordinator.sysj) -- all real logic (console reading, one-batch-in-flight
+// gating, FAULT halting) lives in BatchManagerModel.java.
+import nz.ac.auckland.eabs.zhiyuan.coordinator.BatchManagerModel;
+BatchManagerCD(
+    output String channel activateBatchOut;
+    input  String channel batchResultIn;
+)->{
+    BatchManagerModel signal stateModel;
+    emit stateModel(new BatchManagerModel());
+    pause;
+    {
+        BatchManagerModel model = (BatchManagerModel)#stateModel;
+        while(true){ model.tick(); pause; }
+    }
+    ||
+    {
+        BatchManagerModel model = (BatchManagerModel)#stateModel;
+        String frame = "";
+        while(true){
+            frame = model.nextActivate();
+            if(!frame.equals("")){ send activateBatchOut(frame); }
+            pause;
+        }
+    }
+    ||
+    {
+        BatchManagerModel model = (BatchManagerModel)#stateModel;
+        String result = "";
+        while(true){
+            receive batchResultIn;
+            result = (String)#batchResultIn;
+            model.resultReceived(result);
+            pause;
+        }
+    }
+}

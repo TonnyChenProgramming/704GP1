@@ -85,9 +85,10 @@ public final class EclipseSystemJBuild {
         System.out.println("[1/3] Compile Java helpers with Java 8 bytecode (" + helpers.size() + " files)");
         compileJava(helpers);
         List<Path> sources = new ArrayList<Path>();
-        for (String name : new String[]{"coordinator.sysj", "coordinator_harness.sysj", "BottleLoaderController.sysj",
-                "BottleLoaderPlant.sysj", "ConveyorController.sysj", "ConveyorPlant.sysj", "RoteryTableController.sysj",
-                "RoteryTablePlant.sysj", "TwoLiquidFillerController.sysj", "TwoLiquidFillerPlant.sysj"}) {
+        for (String name : new String[]{"coordinator.sysj", "coordinator_harness.sysj", "batch_manager.sysj",
+                "BottleLoaderController.sysj", "BottleLoaderPlant.sysj", "ConveyorController.sysj", "ConveyorPlant.sysj",
+                "RoteryTableController.sysj", "RoteryTablePlant.sysj", "TwoLiquidFillerController.sysj",
+                "TwoLiquidFillerPlant.sysj"}) {
             sources.add(root.resolve("sysj").resolve(name));
         }
         sources.add(eric.resolve("systemj/finishing_devices.sysj"));
@@ -99,7 +100,7 @@ public final class EclipseSystemJBuild {
                 "-d", generated.toString(), "--nojavac", "--silence", "--", source.toString());
         }
         List<Path> generatedSources = files(generated, ".java", false);
-        if (generatedSources.size() != 23) throw new IOException("Expected 23 fresh CD sources, got " + generatedSources.size());
+        if (generatedSources.size() != 24) throw new IOException("Expected 24 fresh CD sources, got " + generatedSources.size());
         System.out.println("[3/3] Compile and check all 23 generated CD classes");
         compileJava(generatedSources);
         for (Path source : generatedSources) {
