@@ -39,7 +39,7 @@ public final class SharedDashboardTest {
     public static void runAll() throws Exception {
         SwingUtilities.invokeAndWait(() -> {
             testReadOnlyView();
-            testLegacyOperatorMode();
+            testExplicitOperatorMode();
         });
         testBackgroundPublication();
         System.out.println("SHARED GP-IP DASHBOARD TESTS PASSED");
@@ -48,8 +48,8 @@ public final class SharedDashboardTest {
     private static void testReadOnlyView() {
         AtomicInteger sent = new AtomicInteger();
         VisualizationBridge bridge = new VisualizationBridge(c -> sent.incrementAndGet());
-        EabsDashboardPanel panel = new EabsDashboardPanel(bridge, EabsDashboardPanel.Mode.READ_ONLY);
-        require(panel.getMode() == EabsDashboardPanel.Mode.READ_ONLY, "Explicit read-only mode");
+        EabsDashboardPanel panel = new EabsDashboardPanel(bridge);
+        require(panel.getMode() == EabsDashboardPanel.Mode.READ_ONLY, "GUI defaults to read-only mode");
         require(named(panel, "operatorControls") == null, "Read-only must create no operator controls");
         require(named(panel, "readOnlyNotice") instanceof JLabel, "Read-only notice is visible");
         Container machines = (Container) named(panel, "machineStates");
@@ -100,11 +100,11 @@ public final class SharedDashboardTest {
         require(sent.get() == 0, "Rendering/read-only mode must never emit commands");
     }
 
-    private static void testLegacyOperatorMode() {
+    private static void testExplicitOperatorMode() {
         List<OperatorCommand> sent = new ArrayList<OperatorCommand>();
         VisualizationBridge bridge = new VisualizationBridge(sent::add);
-        EabsDashboardPanel panel = new EabsDashboardPanel(bridge);
-        require(panel.getMode() == EabsDashboardPanel.Mode.OPERATOR, "Old constructor remains compatible");
+        EabsDashboardPanel panel = new EabsDashboardPanel(bridge, EabsDashboardPanel.Mode.OPERATOR);
+        require(panel.getMode() == EabsDashboardPanel.Mode.OPERATOR, "Operator mode must be explicit");
         require(named(panel, "operatorControls") != null, "Existing operator controls remain");
         require(sent.isEmpty(), "Construction must not send a speed/start command");
         button(panel, "Start").doClick();

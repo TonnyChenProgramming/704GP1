@@ -29,7 +29,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.TreeSet;
 
-/** Live symbolic GP view. All buttons submit intent through the bridge. */
+/** Live symbolic GP production view. Read-only unless operator mode is explicit. */
 public final class EabsDashboardPanel extends JPanel
         implements VisualizationBridge.StateListener {
     private static final long serialVersionUID = 1L;
@@ -73,7 +73,7 @@ public final class EabsDashboardPanel extends JPanel
             };
 
     public EabsDashboardPanel(VisualizationBridge bridge) {
-        this(bridge, Mode.OPERATOR);
+        this(bridge, Mode.READ_ONLY);
     }
 
     /** READ_ONLY creates no operator controls or command-producing listeners. */
@@ -87,7 +87,7 @@ public final class EabsDashboardPanel extends JPanel
         if (mode == Mode.OPERATOR) {
             add(buildControls(), BorderLayout.SOUTH);
         } else {
-            JLabel notice = new JLabel("Read-only shared view - use the owning coordinator's controls.");
+            JLabel notice = new JLabel("Read-only production view - orders are entered through the POS.");
             notice.setName("readOnlyNotice");
             notice.setBorder(BorderFactory.createEmptyBorder(8, 4, 8, 4));
             add(notice, BorderLayout.SOUTH);
@@ -299,7 +299,13 @@ public final class EabsDashboardPanel extends JPanel
     }
 
     private void submitCommand(OperatorCommand command) {
-        if (mode == Mode.OPERATOR) { bridge.submitOperatorCommand(command); }
+        if (mode == Mode.OPERATOR) {
+            try { bridge.submitOperatorCommand(command); }
+            catch (IllegalStateException unavailable) {
+                waitSummary.setText("Command NOT sent: " + unavailable.getMessage());
+                waitSummary.setBackground(FAULT);
+            }
+        }
     }
 
     @Override

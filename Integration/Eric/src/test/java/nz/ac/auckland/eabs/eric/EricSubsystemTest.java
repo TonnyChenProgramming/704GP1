@@ -297,7 +297,8 @@ public final class EricSubsystemTest {
                 "GUI command must reach only the coordinator-facing sink");
 
         SwingUtilities.invokeAndWait(() -> {
-            EabsDashboardPanel panel = new EabsDashboardPanel(bridge);
+            EabsDashboardPanel panel = new EabsDashboardPanel(
+                    bridge, EabsDashboardPanel.Mode.READ_ONLY);
             panel.setSize(1180, 720);
             layoutRecursively(panel);
             BufferedImage preview =
