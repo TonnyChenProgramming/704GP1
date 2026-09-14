@@ -321,7 +321,7 @@ public final class IntegratedCoordinator {
         Map<Integer, String> occupancy = new LinkedHashMap<Integer, String>();
         for (int p=0; p<6; p++) if (table[p] != null) occupancy.put(p+1, table[p]);
         view.publish(new DashboardState(order, product, batch, recipe, quantity, completed, 0,
-            tracker.activeSnapshots().size(), Math.max(0, quantity-completed), false,
-            unsafe ? fault : "Simulation profile: no active safety monitor connected", phase + (fault.isEmpty() ? "" : ": " + fault), states, occupancy, tracker.activeSnapshots()));
+            tracker.activeSnapshots().size(), Math.max(0, quantity-completed), !unsafe,
+            unsafe ? fault : "Safety permit active", phase + (fault.isEmpty() ? "" : ": " + fault), states, occupancy, tracker.activeSnapshots()));
     }
 }
