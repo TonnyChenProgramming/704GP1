@@ -1,0 +1,39 @@
+// Real, database-backed order entry for CoordinatorCD.activateBatchIn/batchDrainedOut,
+// replacing BatchManagerCD's raw console strings with the IP's actual persistence layer
+// (com.g7.ip.POS/BatchManager/Dao, wired synchronously per IP report Section 10 Stage 1).
+// Same "one shared Java object behind a signal, thin SystemJ reactions only relay channel
+// <-> method calls" shape as BatchManagerCD/CoordinatorCD -- see coordinator.sysj.
+import nz.ac.auckland.eabs.zhiyuan.coordinator.IpBatchManagerModel;
+IpBatchManagerCD(
+    output String channel activateBatchOut;
+    input  String channel batchResultIn;
+)->{
+    IpBatchManagerModel signal stateModel;
+    emit stateModel(new IpBatchManagerModel());
+    pause;
+    {
+        IpBatchManagerModel model = (IpBatchManagerModel)#stateModel;
+        while(true){ model.tick(); pause; }
+    }
+    ||
+    {
+        IpBatchManagerModel model = (IpBatchManagerModel)#stateModel;
+        String frame = "";
+        while(true){
+            frame = model.nextActivate();
+            if(!frame.equals("")){ send activateBatchOut(frame); }
+            pause;
+        }
+    }
+    ||
+    {
+        IpBatchManagerModel model = (IpBatchManagerModel)#stateModel;
+        String result = "";
+        while(true){
+            receive batchResultIn;
+            result = (String)#batchResultIn;
+            model.resultReceived(result);
+            pause;
+        }
+    }
+}

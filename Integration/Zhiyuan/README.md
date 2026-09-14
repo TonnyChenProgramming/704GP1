@@ -26,7 +26,7 @@ changes/reasons, safety limitations and team handoff.
    PowerShell execution-policy change.
 4. Click **Run**, then wait for **ECLIPSE SYSTEMJ BUILD PASSED**. This compiles
    Java helpers first, invokes the course SystemJ compiler, compiles/checks all
-   25 generated CD classes, then publishes the generated Java. It can take a
+   26 generated CD classes, then publishes the generated Java. It can take a
    few minutes. It does not automatically run the simulation.
 5. Press **F5** again and let Eclipse finish its Java build (or use **Project >
    Build Project**). Check **Problems** for errors. Generated Java is in
@@ -43,6 +43,52 @@ changes/reasons, safety limitations and team handoff.
 console `BatchManagerCD`. Enter the seven requested order fields; after `DRAINED`
 it accepts another order and remains running until manually terminated. This is
 an interactive integration profile, not yet a connection to the actual POS CD.
+
+`RunCoordinatorGpPos` replaces `BatchManagerCD` with `IpBatchManagerCD`, which wires
+the IP's real persistence layer (`com.g7.ip.POS`/`BatchManager`/`Dao`) in front of
+the same Coordinator -- the brief's POS-as-part-of-the-core-ABS requirement (Section
+4.2/5) demonstrated for the GP. Every call that touches the database runs on a
+dedicated `DbWorker` thread (`nz...coordinator.DbWorker`), never on the console reader
+thread or the SystemJ tick thread that delivers `batchDrainedOut` results -- submitting
+an order and processing a drained batch both just enqueue a request and return
+immediately. Enter a customer purchase order (customer_po/customer_id/product_id/
+quantity/bottle_spec/recipe_id); once validated it is stored in `Orders` and activates
+its own batch immediately (`-Dip.autoActivate=true`, already set in this launch
+config) -- no cross-order merge step. Two default recipes are seeded on first run and
+printed as a numbered catalog; the `recipe_id` prompt accepts one of those numbers, or
+`new` to define a custom recipe on the spot (prompts for doseA/doseB as 0-100
+percentages) -- an identical recipe already on file (same product/doses/bottle type)
+is reused rather than duplicated, otherwise the new one is persisted to `Recipes`
+before the order is submitted against it, so it stays traceable from `BottleEvents`/
+`Faults` afterwards exactly like a seeded one; the schema's own `CHECK` constraint
+(proportions summing to at most 100%) is the final backstop if a nonsensical split
+ever reached the database. The database defaults to `build/gp-pos-demo.db` (a fixed
+file, so it survives across runs for inspecting with a SQLite viewer while the
+simulation is running).
+
+`IntegratedCoordinator` also publishes every confirmed transition it already gives
+Eric's Tracker (DONE/FAULT/ABORTED) to `TwinEventBus`, a package-private, non-blocking
+bridge. When `RunCoordinatorGpPos` is running, `IpBatchManagerModel` drains this bus on
+its own consumer thread and feeds a real `DigitalTwinAssembler`/`DeviationDetector`
+(IP report Section 4/7) -- so `BottleEvents`/`Faults` now fill from an actual production
+run, not only from `TestHarness`'s stub data, and a deviation check runs automatically
+the moment a bottle reaches `unloader`, printed as `[DigitalTwin] ... deviated=...`.
+This hook is self-gating: it is a genuine no-op on `coordinator.xml`/`coordinator_real.xml`,
+since their batch/recipe ids ("B1", console-typed ids) are not the numeric database ids
+only `IpBatchManagerCD` ever supplies.
+
+`IpBatchManagerModel` also recovers from an abrupt interruption on startup (IP report
+Section 7): before checking for pending demand, it queries `Batches` for any row still
+`RUNNING` -- which, at construction time, can only be work orphaned by a previous process
+that never drained it -- marks every bottle in that batch with no terminal `DONE` at
+`unloader` as `ABORTED`, and closes the batch as `FAULT`. This also fixed a latent bug in
+`Dao.markBottleAborted`: it used to `UPDATE ... WHERE status<>'DONE'`, which touches nothing
+for a bottle whose only rows are legitimate intermediate `DONE`s (e.g. it reached `loader`
+and `conveyor_in` but never `unloader`) -- `BottleEvents` is append-only, so marking a bottle
+aborted now appends one more row instead of trying to rewrite history that was never wrong
+in the first place. Also fixed: a drained batch is now actually marked `COMPLETED`
+(`dao.completeBatch`), which nothing previously called, so `Batches.status` no longer stays
+`RUNNING` forever even for batches that finished normally.
 
 ### If Eclipse still launches PowerShell
 
@@ -105,8 +151,10 @@ only for old workspace configurations and is no longer referenced by BuildAll.
 
 ## Not yet the finished Group Project
 
-The batch driver is a test harness, not the real POS. Tony must send the explicit
-eight-field activation and handle REJECTED/FAULT/DRAINED. The flat protocol has no
+`BatchManagerCD` (`RunCoordinatorReal`) is a test harness, not the real POS -- Tony
+must send the explicit eight-field activation and handle REJECTED/FAULT/DRAINED
+there. `IpBatchManagerCD` (`RunCoordinatorGpPos`) is the real, persistence-backed
+POS alternative described above. The flat activation protocol itself has no
 active STOP/PERMIT/RESET handshake; the current HOLD is not an emergency stop.
 Tonny's rotary occupancy mask and independent fill measurements remain simulation
 limitations. See the handoff document before claiming full GP completion.

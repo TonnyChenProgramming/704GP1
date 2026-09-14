@@ -117,7 +117,9 @@ public final class IntegratedCoordinator {
             tracker.acceptReport(MachineReport.busy(j)); s.busy = true; return "";
         }
         if (f[0].equals("FAULT") && f.length >= 5) {
-            tracker.acceptReport(MachineReport.fault(j, f[4])); fail(name + "_" + f[4]); return "";
+            tracker.acceptReport(MachineReport.fault(j, f[4]));
+            publishTwinTransition(j.getWorkpieceId(), name.toLowerCase(), "FAULT");
+            fail(name + "_" + f[4]); return "";
         }
         if (!f[0].equals("DONE") || f.length < 6 || !f[4].equals("OK") || !s.busy) {
             fail("INVALID_RESULT_" + name); return "";
@@ -156,6 +158,7 @@ public final class IntegratedCoordinator {
         String wp = j.getWorkpieceId();
         if (name.equals("LOADER")) {
             input = wp; admitted++; tracker.confirmLocation(wp, Location.INPUT_CONVEYOR, 0, frame);
+            publishTwinAdmission(wp, product);
         } else if (j.getOperation() == Operation.MOVE_TO_ROTARY) {
             table[0] = wp; input = null; tracker.confirmLocation(wp, POSITIONS[0], 1, frame);
         } else if (j.getOperation() == Operation.MOVE_TO_LABELLER) {
@@ -169,6 +172,7 @@ public final class IntegratedCoordinator {
             output = null; completed++;
             System.out.println("COORDINATOR COMPLETED " + wp + " " + completed + "/" + quantity);
         }
+        publishTwinTransition(wp, twinLocationFor(name, j.getOperation()), "DONE");
         s.job = null; s.busy = false; // READY is still required after ACK.
         s.deadline = System.nanoTime() + timeoutNanos;
         return "ACK|" + j.getJobId() + "|" + wp;
@@ -253,12 +257,12 @@ public final class IntegratedCoordinator {
     public synchronized void reset() {
         if (unsafe || !fault.equals("SAFETY_PERMIT_LOST_MANUAL_RECOVERY_REQUIRED")) return;
         try {
-            if (input != null) { tracker.abortAndArchive(input, "SAFETY_STOP"); input = null; }
+            if (input != null) { tracker.abortAndArchive(input, "SAFETY_STOP"); publishTwinTransition(input, "input", "ABORTED"); input = null; }
             for (int p = 0; p < 6; p++) {
-                if (table[p] != null) { tracker.abortAndArchive(table[p], "SAFETY_STOP"); table[p] = null; }
+                if (table[p] != null) { tracker.abortAndArchive(table[p], "SAFETY_STOP"); publishTwinTransition(table[p], "table" + p, "ABORTED"); table[p] = null; }
             }
-            if (label != null) { tracker.abortAndArchive(label, "SAFETY_STOP"); label = null; }
-            if (output != null) { tracker.abortAndArchive(output, "SAFETY_STOP"); output = null; }
+            if (label != null) { tracker.abortAndArchive(label, "SAFETY_STOP"); publishTwinTransition(label, "label", "ABORTED"); label = null; }
+            if (output != null) { tracker.abortAndArchive(output, "SAFETY_STOP"); publishTwinTransition(output, "output", "ABORTED"); output = null; }
         } catch (java.io.IOException failure) {
             System.err.println("COORDINATOR RESET_FAILED archive error, remaining on hold: " + failure.getMessage());
             return;
@@ -277,6 +281,37 @@ public final class IntegratedCoordinator {
     }
     private boolean allReady() { for (Station s : machines.values()) if (!s.ready || s.job != null) return false; return true; }
     private boolean tableOccupied() { for (String wp : table) if (wp != null) return true; return false; }
+
+    /** Feeds the IP's real-time digital twin (IP report Section 4). Self-gating: becomes a
+     * genuine no-op whenever batch/recipe are not the numeric database ids IpBatchManagerCD
+     * supplies (e.g. the scripted harness's "B1"/"F1", or the interactive console's own typed
+     * batch ids), so coordinator.xml/coordinator_real.xml stay completely unaffected. Never
+     * allowed to throw: a problem here must never destabilise the coordinator's own control
+     * flow, and TwinEventBus itself never blocks (a non-blocking, non-throwing queue offer). */
+    private void publishTwinAdmission(String workpieceId, String productId) {
+        try {
+            TwinEventBus.publishAdmission(workpieceId, Integer.parseInt(batch), Integer.parseInt(recipe), productId);
+        } catch (RuntimeException ignored) {
+            // Non-numeric batch/recipe (scripted harness or console-typed ids) -- no digital twin to feed.
+        }
+    }
+
+    private void publishTwinTransition(String workpieceId, String location, String status) {
+        try {
+            TwinEventBus.publishTransition(workpieceId, Integer.parseInt(batch), location, status);
+        } catch (RuntimeException ignored) {
+        }
+    }
+
+    /** Station-name to digital-twin location label. Conveyor moves a bottle twice (into the
+     * rotary table, then out to the labeller), so it needs its operation to disambiguate;
+     * every other station occupies exactly one label. */
+    private static String twinLocationFor(String name, Operation operation) {
+        if (name.equals("CONVEYOR")) {
+            return operation == Operation.MOVE_TO_ROTARY ? "conveyor_in" : "conveyor_out";
+        }
+        return name.toLowerCase();
+    }
 
     private void publish(long now) {
         if (now - lastPublish < 100000000L) return;
