@@ -250,13 +250,20 @@ public final class IpBatchManagerModel {
                     int resolvedRecipeId = recipeId;
                     if (newRecipe) {
                         try {
-                            resolvedRecipeId = dao.insertRecipe(productId, doseA / 100.0, doseB / 100.0, bottleSpec);
+                            Integer existing = dao.findMatchingRecipe(productId, doseA / 100.0, doseB / 100.0, bottleSpec);
+                            if (existing != null) {
+                                resolvedRecipeId = existing;
+                                System.out.println("[IpBatchManager] Reusing existing recipe_id=" + resolvedRecipeId + " (" + productId
+                                        + " " + doseA + "%/" + doseB + "%, " + bottleSpec + ") -- identical recipe already on file.");
+                            } else {
+                                resolvedRecipeId = dao.insertRecipe(productId, doseA / 100.0, doseB / 100.0, bottleSpec);
+                                System.out.println("[IpBatchManager] Created recipe_id=" + resolvedRecipeId + " (" + productId
+                                        + " " + doseA + "%/" + doseB + "%, " + bottleSpec + ") -- traceable in Recipes from now on.");
+                            }
                         } catch (SQLException failure) {
-                            System.out.println("[IpBatchManager] Rejected(could not create recipe: " + failure.getMessage() + ")");
+                            System.out.println("[IpBatchManager] Rejected(could not resolve recipe: " + failure.getMessage() + ")");
                             return;
                         }
-                        System.out.println("[IpBatchManager] Created recipe_id=" + resolvedRecipeId + " (" + productId
-                                + " " + doseA + "%/" + doseB + "%, " + bottleSpec + ") -- traceable in Recipes from now on.");
                         try {
                             printRecipeCatalog(dao);
                         } catch (SQLException ignored) {

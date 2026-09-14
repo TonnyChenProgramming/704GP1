@@ -36,6 +36,28 @@ public class Dao {
         }
     }
 
+    /** Looks for a recipe already on file with the same composition, so operator-entered "new"
+     * recipes reuse an identical existing row instead of piling up duplicates (product/doses/
+     * bottle type differing only in typed formatting still counts as the same recipe: doses are
+     * compared to the nearest whole percent, bottle type case/whitespace-insensitively). Returns
+     * null if nothing matches, in which case the caller should insertRecipe(...) a new row. */
+    public Integer findMatchingRecipe(String productId, double liquidA, double liquidB, String bottleType) throws SQLException {
+        String sql = "SELECT recipe_id FROM Recipes WHERE product_id=? "
+                + "AND ROUND(liquid_a_proportion*100)=ROUND(?*100) "
+                + "AND ROUND(liquid_b_proportion*100)=ROUND(?*100) "
+                + "AND LOWER(TRIM(bottle_type))=LOWER(TRIM(?)) "
+                + "ORDER BY recipe_id LIMIT 1";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, productId);
+            ps.setDouble(2, liquidA);
+            ps.setDouble(3, liquidB);
+            ps.setString(4, bottleType);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : null;
+            }
+        }
+    }
+
     /** Recipe fields needed by POS validation, Batch Manager admission (POS_BatchManager_Spec.md),
      * and GP dose resolution: liquidA/liquidB are the raw 0-1 proportions from the schema, used by
      * the GP-side Coordinator adapter to compute the integer doseA/doseB the ACTIVATE frame carries. */
