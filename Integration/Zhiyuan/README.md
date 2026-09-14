@@ -81,6 +81,16 @@ This hook is self-gating: it is a genuine no-op on `coordinator.xml`/`coordinato
 since their batch/recipe ids ("B1", console-typed ids) are not the numeric database ids
 only `IpBatchManagerCD` ever supplies.
 
+`RunCoordinatorGpPos` runs the exact same `IpBatchManagerCD`/`coordinator_ip.xml` with one extra
+VM argument, `-Dip.autoActivate=true` (also using its own `build/gp-pos-demo.db` so it never
+collides with `RunCoordinatorIp`'s own database file). This is the brief's POS-as-part-of-the-
+core-ABS requirement (Section 4.2/5) demonstrated for the GP: a purchase order is submitted
+through the real, persistence-backed POS and activates its own batch immediately, no `go`/
+cross-order merge step -- that two-step demand-consolidation behaviour is still the IP's own
+`RunCoordinatorIp` demo. No code path shared with `RunCoordinatorReal`/`BatchManagerCD` or the
+plain `RunCoordinatorIp` changes: `autoActivate` defaults to `false`, so neither existing launch
+config's behaviour is affected by this addition.
+
 `IpBatchManagerModel` also recovers from an abrupt interruption on startup (IP report
 Section 7): before checking for pending demand, it queries `Batches` for any row still
 `RUNNING` -- which, at construction time, can only be work orphaned by a previous process

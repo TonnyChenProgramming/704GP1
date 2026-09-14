@@ -42,12 +42,18 @@ public final class IpBatchManagerModel {
     private final DigitalTwinAssembler assembler;
     private final DeviationDetector detector;
     private final DbWorker dbWorker = new DbWorker();
+    /** GP demo mode (brief 4.2: "order should be submitted ... processed and production
+     * launched"): each accepted order activates its own batch immediately, no 'go'/cross-order
+     * merge step. Off by default -Dip.autoActivate=true keeps the IP's own two-step demo
+     * (submit several orders, then 'go' to merge same-product ones) completely unaffected. */
+    private final boolean autoActivate;
 
     private String pendingFrame = null;
     private String awaitingResultFor = null; // null = no batch currently in flight
     private volatile boolean halted = false;
 
     public IpBatchManagerModel() {
+        this.autoActivate = Boolean.getBoolean("ip.autoActivate");
         Dao daoRef = null;
         POS posRef = null;
         BatchManager batchManagerRef = null;
@@ -170,8 +176,10 @@ public final class IpBatchManagerModel {
 
     private void readLoop() {
         while (!halted) {
-            System.out.println("[IpBatchManager] Enter next purchase order, or 'go' to activate now (server validates; bad values come back Rejected):");
-            String customerPo = readField("  customer_po [A-Za-z0-9_.-]{1,60}, or 'go': ");
+            System.out.println(autoActivate
+                    ? "[IpBatchManager] Enter next purchase order -- it activates its own batch immediately (server validates; bad values come back Rejected):"
+                    : "[IpBatchManager] Enter next purchase order, or 'go' to activate now (server validates; bad values come back Rejected):");
+            String customerPo = readField(autoActivate ? "  customer_po [A-Za-z0-9_.-]{1,60}: " : "  customer_po [A-Za-z0-9_.-]{1,60}, or 'go': ");
             if (customerPo == null) {
                 System.out.println("[IpBatchManager] Input closed; no more orders will be submitted.");
                 return;
@@ -272,7 +280,12 @@ public final class IpBatchManagerModel {
                     }
                     POS.SubmitResult result = pos.submitOrder(customerPo, customerId, productId, quantity, bottleSpec, resolvedRecipeId);
                     System.out.println("[IpBatchManager] " + result
-                            + (result.accepted ? " -- stored as PENDING; type 'go' once you're done entering orders for this batch." : ""));
+                            + (result.accepted
+                                    ? (autoActivate ? " -- activating immediately." : " -- stored as PENDING; type 'go' once you're done entering orders for this batch.")
+                                    : ""));
+                    if (result.accepted && autoActivate) {
+                        triggerBatchIfIdle();
+                    }
                 } catch (SQLException failure) {
                     System.out.println("[IpBatchManager] Database error while submitting order: " + failure.getMessage());
                 }
