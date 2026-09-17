@@ -67,10 +67,13 @@ public final class PosGuiFrame extends JFrame {
     private static final Color OK_BG = new Color(226, 239, 218);
 
     private static final Pattern DERIVED_PRODUCT = Pattern.compile("^FORM-(.+)-(\\d+)-(\\d+)$");
-    private static final AtomicInteger PO_SEQUENCE = new AtomicInteger(1);
     private static final int POLL_INTERVAL_MS = 2000;
 
     private final IpBatchManagerModel model;
+    /** Seeded from the database at startup (see the constructor) -- never left at its default
+     * of 1 once that seeding completes, precisely to avoid the UNIQUE-constraint collision a
+     * fixed, reused database file causes across JVM restarts. */
+    private final AtomicInteger poSequence = new AtomicInteger(1);
 
     // Place Order tab.
     private final JTextField customerField = new JTextField("UoA CS704 G7", 24);
@@ -122,6 +125,19 @@ public final class PosGuiFrame extends JFrame {
             }
         });
         pollTimer.start();
+
+        // Seed the PO counter from whatever this database file already has under today's
+        // prefix, so restarting against a reused -Dip.database=...db file (see
+        // RunCoordinatorPosGui.launch) can never re-issue a customer_po that already exists
+        // and fails the UNIQUE constraint on submit. Submitting is disabled until this
+        // returns so there is no window where a stale counter=1 could still be used.
+        submitButton.setEnabled(false);
+        footerStatus.setText("Loading PO sequence...");
+        model.highestPoSequence(currentYearPrefix(), highest -> SwingUtilities.invokeLater(() -> {
+            poSequence.set(highest + 1);
+            submitButton.setEnabled(true);
+            footerStatus.setText("Ready -- connected to POS database.");
+        }));
     }
 
     private JPanel buildPlaceOrderTab() {
@@ -405,8 +421,11 @@ public final class PosGuiFrame extends JFrame {
         return "Product " + productId;
     }
 
-    private static String nextPoReference() {
-        String year = new SimpleDateFormat("yyyy", Locale.ROOT).format(new Date());
-        return "PO-" + year + "-" + String.format(Locale.ROOT, "%04d", PO_SEQUENCE.getAndIncrement());
+    private static String currentYearPrefix() {
+        return "PO-" + new SimpleDateFormat("yyyy", Locale.ROOT).format(new Date()) + "-";
+    }
+
+    private String nextPoReference() {
+        return currentYearPrefix() + String.format(Locale.ROOT, "%04d", poSequence.getAndIncrement());
     }
 }

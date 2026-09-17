@@ -182,6 +182,20 @@ public class Dao {
 
     // ---------- Orders (Table 3) ----------
 
+    /** All customer_po references currently on file. Needed to seed a client-side PO
+     * generator (PosGuiFrame.nextPoReference) with a collision-free starting point: a fixed,
+     * reused database file (-Dip.database=build/...db) persists customer_po values across
+     * JVM restarts, but an in-memory sequence counter does not, so re-deriving the highest
+     * value already used is the only way to avoid re-issuing one that violates the UNIQUE
+     * constraint on customer_po. */
+    public List<String> listCustomerPos() throws SQLException {
+        List<String> out = new ArrayList<>();
+        try (Statement s = conn.createStatement(); ResultSet rs = s.executeQuery("SELECT customer_po FROM Orders")) {
+            while (rs.next()) { out.add(rs.getString(1)); }
+        }
+        return out;
+    }
+
     public int insertOrder(String customerPo, String customerId, String productId, int quantity) throws SQLException {
         String sql = "INSERT INTO Orders(customer_po, customer_id, product_id, quantity, status) VALUES (?,?,?,?,'PENDING')";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {

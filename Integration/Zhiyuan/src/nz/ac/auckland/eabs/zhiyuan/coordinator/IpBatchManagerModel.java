@@ -403,6 +403,45 @@ public final class IpBatchManagerModel {
         });
     }
 
+    /** Reports the highest PO sequence number already on file for the given prefix. */
+    public interface PoSequenceResult {
+        void onComplete(int highestSequence);
+    }
+
+    /** GUI startup helper: PosGuiFrame generates PO references client-side as
+     * prefix + zero-padded sequence, but a fixed, reused -Dip.database=...db file persists
+     * across JVM restarts while an in-memory AtomicInteger does not -- so on its own, a fresh
+     * counter starting at 1 will eventually re-issue a customer_po the database already has,
+     * which fails the UNIQUE constraint on submit. Scanning existing customer_po values for
+     * this prefix and returning the highest suffix found (0 if none) lets the caller seed its
+     * counter to continue from there instead of restarting at 1 every launch. */
+    public void highestPoSequence(final String prefix, final PoSequenceResult onResult) {
+        if (halted) {
+            onResult.onComplete(0);
+            return;
+        }
+        dbWorker.submit(new Runnable() {
+            public void run() {
+                int highest = 0;
+                try {
+                    for (String po : dao.listCustomerPos()) {
+                        if (po == null || !po.startsWith(prefix)) { continue; }
+                        try {
+                            int n = Integer.parseInt(po.substring(prefix.length()));
+                            if (n > highest) { highest = n; }
+                        } catch (NumberFormatException ignored) {
+                            // A customer_po under this prefix that isn't one of ours -- skip it.
+                        }
+                    }
+                } catch (SQLException ignored) {
+                    // Falls through with whatever was found so far (0 on total failure); the
+                    // caller's counter still starts somewhere sane rather than blocking forever.
+                }
+                onResult.onComplete(highest);
+            }
+        });
+    }
+
     /** product_id is customer-invisible in the GUI flow (brief 4.2 defines a product BY its
      * bottle size and liquid specification, not the other way round) -- this derives a stable
      * id from exactly those two things, so resubmitting the identical capacity+mix always

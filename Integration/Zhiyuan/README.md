@@ -116,7 +116,13 @@ the new `Dao.findOrderStatus` query (`Orders` left-joined through `OrderBatches`
 since the digital-twin pipeline in this same process is what increments
 `OrderBatches.completed_quantity` as bottles finish. Uses its own
 `build/pos-gui-demo.db` so it never collides with the other launch configs' database
-files.
+files -- and because that file is fixed and reused across runs (not a fresh
+`build/ip-<uuid>.db`), `PosGuiFrame` seeds its PO-reference counter from
+`IpBatchManagerModel.highestPoSequence()` on startup (a `Dao.listCustomerPos()` scan for
+today's `PO-<year>-` prefix) rather than starting over at 1 -- otherwise a second launch
+against the same file would eventually regenerate a `customer_po` the database already
+has and fail its `UNIQUE` constraint on submit. The Submit button stays disabled until
+that seeding call returns.
 
 `IpBatchManagerModel` also recovers from an abrupt interruption on startup (IP report
 Section 7): before checking for pending demand, it queries `Batches` for any row still
