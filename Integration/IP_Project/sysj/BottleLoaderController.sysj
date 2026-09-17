@@ -1,0 +1,121 @@
+BottleLoaderController(
+
+    input String channel commandIn;
+    output String channel reportOut;
+    input String channel ackIn;
+
+    output Boolean channel load;
+    output Boolean channel retract;
+
+    input Boolean channel bottleAvailable;
+    input Boolean channel placed;
+    input Boolean channel armHome;
+
+)->{
+
+    send reportOut("READY|LOADER");
+
+    while(true){
+
+        receive commandIn;
+
+        String command = (String)#commandIn;
+
+        int first = command.indexOf("|");
+        int second = command.indexOf("|", first + 1);
+        int third = command.indexOf("|", second + 1);
+
+        String jobId = command.substring(first + 1, second);
+        String workpieceId = command.substring(second + 1, third);
+
+        System.out.println(
+            "START received for " + workpieceId
+        );
+
+
+        receive bottleAvailable;
+
+
+        if((Boolean)#bottleAvailable){
+
+            send reportOut(
+                "BUSY|" +
+                jobId + "|" +
+                workpieceId +
+                "|LOADER"
+            );
+
+
+            send load(true);
+
+            receive placed;
+
+
+            if((Boolean)#placed){
+
+                send retract(true);
+
+                receive armHome;
+
+
+                if((Boolean)#armHome){
+
+                    send reportOut(
+                        "DONE|" +
+                        jobId + "|" +
+                        workpieceId +
+                        "|LOADER|OK|bottlePlaced=true"
+                    );
+
+
+                    receive ackIn;
+
+
+                    send reportOut(
+                        "READY|LOADER"
+                    );
+
+                }
+
+                else{
+
+                    send reportOut(
+                        "FAULT|" +
+                        jobId + "|" +
+                        workpieceId +
+                        "|LOADER|ARM_NOT_HOME"
+                    );
+
+                }
+
+            }
+
+            else{
+
+                send reportOut(
+                    "FAULT|" +
+                    jobId + "|" +
+                    workpieceId +
+                    "|LOADER|BOTTLE_NOT_PLACED"
+                );
+
+            }
+
+        }
+
+        else{
+
+            send reportOut(
+                "FAULT|" +
+                jobId + "|" +
+                workpieceId +
+                "|LOADER|NO_BOTTLE_AVAILABLE"
+            );
+
+        }
+
+        pause;
+
+    }
+
+}

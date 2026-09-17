@@ -1,0 +1,2 @@
+event,occurrence,label
+CONVEYOR_DONE,1,after_first_bottle_transfer_to_rotary

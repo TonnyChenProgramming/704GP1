@@ -1,0 +1,35 @@
+RotaryTablePlant(
+
+    // controller --> plant
+    input Boolean channel rotate;
+
+    // plant --> controller
+    output Boolean channel aligned;
+
+)->{
+
+    while(true){
+
+        receive rotate;
+
+        if((Boolean)#rotate){
+
+            System.out.println(
+                "Plant: ROTATE received"
+            );
+
+            // Simulate one 60-degree rotation
+            waitl(500 ms);
+
+            System.out.println(
+                "Plant: table rotated 60 degrees"
+            );
+
+            // Alignment is the authoritative
+            // rotation completion evidence
+            send aligned(true);
+        }
+
+        pause;
+    }
+}

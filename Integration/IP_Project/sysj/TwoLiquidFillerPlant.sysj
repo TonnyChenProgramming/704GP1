@@ -1,0 +1,56 @@
+TwoLiquidFillerPlant(
+
+    input Integer channel dose1;
+    input Integer channel dose2;
+
+    output Boolean channel bottlePresent;
+    output Boolean channel dose1Done;
+    output Boolean channel dose2Done;
+    output Boolean channel overflow;
+
+    output Integer channel currentAmountA;
+    output Integer channel currentAmountB;
+
+)->{
+
+    int amountA = 0;
+    int amountB = 0;
+
+    while(true){
+
+        send bottlePresent(true);
+
+        receive dose1;
+        amountA += (Integer)#dose1;
+
+        System.out.println(
+            "Plant: liquid 1 filled"
+        );
+
+        waitl(500 ms);
+
+        send dose1Done(true);
+        send currentAmountA(amountA);
+
+        receive dose2;
+        amountB += (Integer)#dose2;
+
+        System.out.println(
+            "Plant: liquid 2 filled"
+        );
+
+        waitl(500 ms);
+
+        send dose2Done(true);
+        send currentAmountB(amountB);
+
+        send overflow(
+            amountA + amountB > 100
+        );
+
+        amountA = 0;
+        amountB = 0;
+
+        pause;
+    }
+}

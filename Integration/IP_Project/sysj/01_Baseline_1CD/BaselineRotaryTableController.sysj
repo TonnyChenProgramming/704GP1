@@ -1,0 +1,64 @@
+BaselineRotaryTableController(
+
+    // coordinator --> controller
+    input signal rotateTrigger;
+
+    // controller --> coordinator
+    output signal tableAligned;
+
+    // controller --> plant
+    output Boolean channel rotate;
+
+    // plant --> controller
+    input Boolean channel aligned;
+
+)->{
+
+    int rotationTraceId = 0;
+
+    while(true){
+
+        await(rotateTrigger);
+
+        rotationTraceId++;
+
+        System.out.println(
+            "TRACE ROTARY_CONTROLLER_RECEIVED" +
+            " rotation=" + rotationTraceId +
+            " ns=" + System.nanoTime()
+        );
+
+        // Request one 60-degree rotation
+        send rotate(true);
+
+        System.out.println(
+            "TRACE ROTATE_COMMAND_SENT" +
+            " rotation=" + rotationTraceId +
+            " ns=" + System.nanoTime()
+        );
+
+        // Wait until table is physically aligned
+        receive aligned;
+
+        System.out.println(
+            "TRACE CONTROLLER_ALIGNED_RECEIVED" +
+            " rotation=" + rotationTraceId +
+            " value=" + (Boolean)#aligned +
+            " ns=" + System.nanoTime()
+        );
+
+        if((Boolean)#aligned){
+
+            // Alignment confirms rotation completion
+            emit tableAligned;
+
+            System.out.println(
+                "TRACE TABLE_ALIGNED_EMITTED" +
+                " rotation=" + rotationTraceId +
+                " ns=" + System.nanoTime()
+            );
+        }
+
+        pause;
+    }
+}

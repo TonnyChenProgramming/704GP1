@@ -1,0 +1,30 @@
+BottleLoaderPlant(
+	// controller --> plant
+    input Boolean channel load;
+    input Boolean channel retract;
+    
+    // plant --> controller
+    output Boolean channel bottleAvailable;
+    output Boolean channel placed;
+    output Boolean channel armHome;
+
+)->{
+
+    while(true){
+
+        send bottleAvailable(true);
+        receive load;
+        System.out.println("Plant: LOAD received");
+        waitl(500 ms);
+        System.out.println("Plant: bottle placed");
+        send placed(true);
+
+        receive retract;
+        System.out.println("Plant: RETRACT received");
+        waitl(500 ms);
+        System.out.println("Plant: arm home");
+        send armHome(true);
+
+        pause;
+    }
+}

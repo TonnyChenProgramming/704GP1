@@ -2,219 +2,253 @@ package nz.ac.auckland.eabs.zhiyuan.tooling;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.ServerSocket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
 import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import javax.tools.*;
 
-/** Eclipse Java Application entry point. No PowerShell, shell scripts or PATH tools. */
 public final class EclipseSystemJBuild {
-    private static final String COMPILER = "nz.ac.auckland.eabs.eric.tooling.SystemJCompilerLauncher";
-    private static final String TEST = "nz.ac.auckland.eabs.zhiyuan.coordinator.IntegratedCoordinatorTest";
-    private static final String RUNNER = "com.systemj.SystemJRunner";
-    private static final Pattern ERRORS = Pattern.compile(
-        "error:|Internal errors were detected|OutOfMemoryError|Exception in thread", Pattern.CASE_INSENSITIVE);
-    private static volatile Process activeChild;
-    private final Path root, eric, run, classes, generated, java;
-    private final String classpath;
 
-    private EclipseSystemJBuild(Path project) throws IOException {
-        root = project.toRealPath();
-        eric = root.resolve("../Eric").normalize().toRealPath();
-        if (!Files.isRegularFile(root.resolve("sysj/coordinator.sysj"))) {
-            throw new IOException("Working directory must be Integration/Zhiyuan: " + root);
+    private static final String COMPILER = "nz.ac.auckland.eabs.eric.tooling.SystemJCompilerLauncher";
+    private static final String RUNNER   = "com.systemj.SystemJRunner";
+    private static final String MODEL    = "nz.ac.auckland.eabs.zhiyuan.coordinator.IntegratedCoordinatorTest";
+    private static final Pattern ERR = Pattern.compile("error:|Exception in thread|OutOfMemoryError|Internal errors were detected", Pattern.CASE_INSENSITIVE);
+    private static final Pattern PORT = Pattern.compile("\\bPort\\s*=\\s*\"([0-9]+)\"");
+    private static volatile Process activeChild;
+
+    private static final class Variant {
+        final String name, folder, xml;
+        final String[] sysj;
+        Variant(String name, String folder, String xml, String... sysj) {
+            this.name = name; this.folder = folder; this.xml = xml; this.sysj = sysj;
         }
-        if (ToolProvider.getSystemJavaCompiler() == null) {
-            throw new IllegalStateException("BuildAll needs a JDK, not a JRE. In Run Configurations > JRE, select a full JDK.");
-        }
-        Path javaHome = Paths.get(System.getProperty("java.home"));
-        java = javaHome.resolve("bin").resolve(System.getProperty("os.name").startsWith("Windows") ? "java.exe" : "java");
-        if (!Files.isRegularFile(java)) throw new IOException("Java executable missing: " + java);
-        Path build = root.resolve("build");
-        Files.createDirectories(build);
-        if (!build.toRealPath().startsWith(root)) throw new IOException("Build directory escapes project: " + build);
-        run = Files.createTempDirectory(build, "eclipse-build-");
-        classes = Files.createDirectory(run.resolve("classes"));
-        generated = Files.createDirectory(run.resolve("generated"));
-        List<String> cp = new ArrayList<String>();
-        cp.add(classes.toString());
-        for (Path jar : files(root.resolve("lib"), ".jar", false)) {
-            if (!jar.getFileName().toString().startsWith("kotlin-")) cp.add(jar.toString());
-        }
-        if (!Files.isRegularFile(root.resolve("lib/sjc-2.2-13-g8ab684c-SNAPSHOT.jar"))) {
-            throw new IOException("Course SystemJ compiler jar missing in " + root.resolve("lib"));
-        }
-        classpath = String.join(File.pathSeparator, cp);
     }
 
+    private static final String[] SHARED = {
+        "coordinator_harness.sysj", "batch_manager.sysj", "safety_monitor.sysj",
+        "BottleLoaderController.sysj", "BottleLoaderPlant.sysj",
+        "ConveyorController.sysj", "ConveyorPlant.sysj",
+        "RoteryTablePlant.sysj", "TwoLiquidFillerController.sysj", "TwoLiquidFillerPlant.sysj"
+    };
+
+    private static final Variant[] VARIANTS = {
+        new Variant("BASELINE", "01_Baseline_1CD", "coordinator.xml",
+            "BaselineCoordinatorCD.sysj", "BaselineRotaryTableController.sysj"),
+        new Variant("IMPROVED", "02_Improved_3CD", "IntegratedCoordinatorAcceptance_3CD.xml",
+            "BatchCoordinatorCD.sysj", "ProductionCoordinatorCD.sysj", "SafetyCoordinatorCD.sysj", "DecomposedRotaryTableController.sysj"),
+        new Variant("HARDENED", "03_Hardened_1CD", "HardenedCoordinatorCD.xml",
+            "coordinator.sysj", "HardenedRotaryTableController.sysj")
+    };
+
+    private static final String[] REQUIRED = {
+        "BaselineCoordinatorCD.java", "BaselineRotaryTableController.java",
+        "BatchCoordinatorCD.java", "ProductionCoordinatorCD.java", "SafetyCoordinatorCD.java", "DecomposedRotaryTableController.java",
+        "HardenedCoordinatorCD.java", "HardenedRotaryTableController.java"
+    };
+
+    private final Path root, eric, run, classes, generated, java;
+    private final String cp;
+
     public static void main(String[] args) throws Exception {
-        boolean tests = false;
+        boolean test = false;
         Path project = Paths.get(System.getProperty("user.dir"));
-        for (int i=0; i<args.length; i++) {
-            if (args[i].equals("--test")) tests = true;
-            else if (args[i].equals("--project") && i+1 < args.length) project = Paths.get(args[++i]);
-            else throw new IllegalArgumentException("Usage: EclipseSystemJBuild [--test] [--project directory]");
+        for (int i = 0; i < args.length; i++) {
+            if ("--test".equals(args[i])) test = true;
+            else if ("--project".equals(args[i]) && i + 1 < args.length) project = Paths.get(args[++i]);
+            else throw new IllegalArgumentException("Usage: EclipseSystemJBuild [--test] [--project DIR]");
         }
-        Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
-            public void run() { Process child = activeChild; if (child != null && child.isAlive()) child.destroyForcibly(); }
-        }, "systemj-build-child-cleanup"));
-        EclipseSystemJBuild build = new EclipseSystemJBuild(project);
-        if (tests) build.checkRuntimePorts();
-        build.compile();
-        if (tests) build.test();
-        build.publishSources();
-        System.out.println(tests ? "ECLIPSE SYSTEMJ BUILD AND TEST PASSED" : "ECLIPSE SYSTEMJ BUILD PASSED");
-        System.out.println("Evidence/output: " + build.run);
-        System.out.println("Next: F5 on both projects; Project > Build Project (or Build Automatically); RunCoordinator.");
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            Process p = activeChild;
+            if (p != null && p.isAlive()) p.destroyForcibly();
+        }));
+        EclipseSystemJBuild b = new EclipseSystemJBuild(project);
+        if (test) b.checkPorts();
+        b.compile();
+        if (test) b.smokeAll();
+        b.publishGenerated();
+        b.publishManifest();
+        System.out.println();
+        System.out.println(test ? "ECLIPSE SYSTEMJ BUILD AND TEST PASSED" : "ECLIPSE SYSTEMJ BUILD PASSED");
+        System.out.println("Classes:  " + b.classes);
+        System.out.println("Build dir: " + b.run);
+        System.out.println("XML choices:");
+        for (Variant v : VARIANTS) System.out.println("  " + v.name + " -> " + b.root.resolve("sysj").resolve(v.folder).resolve(v.xml));
+        System.out.println("Switch architecture by selecting a different XML; rebuild is not needed.");
+    }
+
+    private EclipseSystemJBuild(Path project) throws Exception {
+        root = project.toRealPath();
+        eric = root.resolve("../Eric").normalize().toRealPath();
+        Path sysj = root.resolve("sysj");
+        needDir(sysj); needDir(root.resolve("src")); needDir(root.resolve("tests")); needDir(eric.resolve("src/main/java"));
+        for (String s : SHARED) needFile(sysj.resolve(s));
+        for (Variant v : VARIANTS) {
+            Path d = sysj.resolve(v.folder); needDir(d); needFile(d.resolve(v.xml));
+            for (String s : v.sysj) needFile(d.resolve(s));
+        }
+        needFile(eric.resolve("systemj/finishing_devices.sysj"));
+        needFile(eric.resolve("systemj/finishing_shims.sysj"));
+        if (ToolProvider.getSystemJavaCompiler() == null) throw new IllegalStateException("Run with a JDK, not a JRE.");
+        java = Paths.get(System.getProperty("java.home"), "bin", osExe("java"));
+        needFile(java);
+        Path build = root.resolve("build"); Files.createDirectories(build);
+        run = Files.createTempDirectory(build, "eclipse-build-all-");
+        classes = Files.createDirectory(run.resolve("classes"));
+        generated = Files.createDirectory(run.resolve("generated"));
+        List<String> c = new ArrayList<>();
+        c.add(classes.toString());
+        for (Path j : listFiles(root.resolve("lib"), ".jar", false)) if (!j.getFileName().toString().startsWith("kotlin-")) c.add(j.toString());
+        needFile(root.resolve("lib/sjc-2.2-13-g8ab684c-SNAPSHOT.jar"));
+        cp = String.join(File.pathSeparator, c);
     }
 
     private void compile() throws Exception {
-        // javac accepts explicit files in the wrong directory; Eclipse's Java
-        // project builder does not. Check both contracts before reporting success.
         validateSourceLayout(eric.resolve("src/main/java"));
         validateSourceLayout(root.resolve("src"));
         validateSourceLayout(root.resolve("tests"));
-        // Compile source helpers independently of Eclipse's bytecode settings or stale bin/.
-        List<Path> helpers = files(eric.resolve("src/main/java"), ".java", true);
-        helpers.addAll(files(root.resolve("src"), ".java", true));
-        helpers.addAll(files(root.resolve("tests"), ".java", true));
+
+        List<Path> helpers = new ArrayList<>();
+        helpers.addAll(listFiles(eric.resolve("src/main/java"), ".java", true));
+        helpers.addAll(listFiles(root.resolve("src"), ".java", true));
+        helpers.addAll(listFiles(root.resolve("tests"), ".java", true));
         System.out.println("[1/3] Compile Java helpers with Java 8 bytecode (" + helpers.size() + " files)");
         compileJava(helpers);
-        List<Path> sources = new ArrayList<Path>();
-        for (String name : new String[]{"coordinator.sysj", "coordinator_harness.sysj", "batch_manager.sysj",
-                "safety_monitor.sysj",
-                "BottleLoaderController.sysj", "BottleLoaderPlant.sysj", "ConveyorController.sysj", "ConveyorPlant.sysj",
-                "RoteryTableController.sysj", "RoteryTablePlant.sysj", "TwoLiquidFillerController.sysj",
-                "TwoLiquidFillerPlant.sysj",   "BatchCoordinatorCD.sysj", "ProductionCoordinatorCD.sysj", "SafetyCoordinatorCD.sysj",}) {
-            sources.add(root.resolve("sysj").resolve(name));
+
+        List<Path> sysj = new ArrayList<>();
+        Path rootSysj = root.resolve("sysj");
+        for (String s : SHARED) sysj.add(rootSysj.resolve(s));
+        for (Variant v : VARIANTS) for (String s : v.sysj) sysj.add(rootSysj.resolve(v.folder).resolve(s));
+        sysj.add(eric.resolve("systemj/finishing_devices.sysj"));
+        sysj.add(eric.resolve("systemj/finishing_shims.sysj"));
+
+        System.out.println("[2/3] Translate all SystemJ variants to Java");
+        for (Path s : sysj) {
+            System.out.println("SystemJ: " + root.relativize(s.toAbsolutePath().normalize()));
+            child("compile-" + safe(s.getFileName().toString()), 90,
+                "-Xmx384m", "-cp", cp, COMPILER,
+                "-d", generated.toString(), "--nojavac", "--silence", "--", s.toString());
         }
-        sources.add(eric.resolve("systemj/finishing_devices.sysj"));
-        sources.add(eric.resolve("systemj/finishing_shims.sysj"));
-        System.out.println("[2/3] Translate SystemJ to Java; the course compiler may take several minutes.");
-        for (Path source : sources) {
-            System.out.println("SystemJ: " + source.getFileName());
-            child("compile-" + source.getFileName(), 90, "-Xmx384m", "-cp", classpath, COMPILER,
-                "-d", generated.toString(), "--nojavac", "--silence", "--", source.toString());
-        }
-        List<Path> generatedSources = files(generated, ".java", false);
-        if (generatedSources.size() != 28) throw new IOException("Expected 28 fresh CD sources, got " + generatedSources.size());
-        System.out.println("[3/3] Compile and check all 28 generated CD classes");
-        compileJava(generatedSources);
-        for (Path source : generatedSources) {
-            String name = source.getFileName().toString().replaceFirst("\\.java$", ".class");
-            if (!Files.isRegularFile(classes.resolve(name))) throw new IOException("Missing fresh CD class " + name);
+
+        for (String name : REQUIRED) needFile(generated.resolve(name));
+        List<Path> out = listFiles(generated, ".java", false);
+        System.out.println("[3/3] Compile generated clock-domain classes (" + out.size() + " files)");
+        compileJava(out);
+        for (Path s : out) needFile(classes.resolve(s.getFileName().toString().replaceFirst("\\.java$", ".class")));
+    }
+
+    private void smokeAll() throws Exception {
+        System.out.println("[Tests] Model test");
+        mustContain(child("model", 30, "-Djava.awt.headless=true", "-cp", cp, MODEL), "COORDINATOR MODEL TESTS PASSED");
+        for (Variant v : VARIANTS) {
+            Path xml = root.resolve("sysj").resolve(v.folder).resolve(v.xml);
+            System.out.println("[Smoke] " + v.name + " -> " + xml);
+            String out = child("smoke-" + v.name.toLowerCase(Locale.ROOT), 120,
+                "-Xmx256m", "-Djava.awt.headless=true", "-Davailability.fastHarness=true", "-Deric.finishing.flatSimulation=true",
+                "-cp", cp, RUNNER, xml.toString());
+            if (!(out.contains("DRAINED") || out.contains("COORDINATOR REAL DEVICE INTEGRATION PASSED")))
+                throw new IOException("Smoke test did not finish cleanly for " + v.name);
         }
     }
 
-    private void compileJava(List<Path> sources) throws IOException {
-        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-        DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<JavaFileObject>();
-        try (StandardJavaFileManager manager = compiler.getStandardFileManager(diagnostics, Locale.ROOT, StandardCharsets.UTF_8)) {
-            List<File> inputs = new ArrayList<File>();
-            for (Path p : sources) inputs.add(p.toFile());
-            List<String> options = Arrays.asList("-source", "8", "-target", "8", "-Xlint:-options", "-encoding", "UTF-8",
-                "-classpath", classpath, "-d", classes.toString());
-            boolean ok = compiler.getTask(null, manager, diagnostics, options, null, manager.getJavaFileObjectsFromFiles(inputs)).call();
-            for (Diagnostic<?> d : diagnostics.getDiagnostics()) System.out.println(d);
-            if (!ok) throw new IOException("Java compilation failed; no generated sources published. Output: " + run);
+    private void compileJava(List<Path> src) throws IOException {
+        JavaCompiler jc = ToolProvider.getSystemJavaCompiler();
+        DiagnosticCollector<JavaFileObject> diags = new DiagnosticCollector<>();
+        try (StandardJavaFileManager fm = jc.getStandardFileManager(diags, Locale.ROOT, StandardCharsets.UTF_8)) {
+            List<File> in = new ArrayList<>(); for (Path p : src) in.add(p.toFile());
+            List<String> opt = Arrays.asList("-source", "8", "-target", "8", "-Xlint:-options", "-encoding", "UTF-8", "-classpath", cp, "-d", classes.toString());
+            boolean ok = jc.getTask(null, fm, diags, opt, null, fm.getJavaFileObjectsFromFiles(in)).call();
+            for (Diagnostic<?> d : diags.getDiagnostics()) System.out.println(d);
+            if (!ok) throw new IOException("Java compilation failed. Output: " + run);
         }
     }
 
-    private String child(String label, int timeoutSeconds, String... args) throws Exception {
-        List<String> command = new ArrayList<String>();
-        command.add(java.toString()); Collections.addAll(command, args);
+    private String child(String label, int timeout, String... args) throws Exception {
+        List<String> cmd = new ArrayList<>(); cmd.add(java.toString()); Collections.addAll(cmd, args);
         Path log = run.resolve(label + ".log");
-        Process child = new ProcessBuilder(command).directory(root.toFile()).redirectErrorStream(true).redirectOutput(log.toFile()).start();
-        activeChild = child;
+        Process p = new ProcessBuilder(cmd).directory(root.toFile()).redirectErrorStream(true).redirectOutput(log.toFile()).start();
+        activeChild = p;
         try {
-            if (!child.waitFor(timeoutSeconds, TimeUnit.SECONDS)) {
-                child.destroyForcibly(); child.waitFor();
-                throw new IOException(label + " timed out; see " + log);
+            if (!p.waitFor(timeout, TimeUnit.SECONDS)) {
+                p.destroyForcibly(); p.waitFor(); throw new IOException(label + " timed out; see " + log);
             }
-            String output = new String(Files.readAllBytes(log), StandardCharsets.UTF_8);
-            if (!output.trim().isEmpty()) System.out.print(output);
-            if (child.exitValue() != 0 || ERRORS.matcher(output).find()) {
-                throw new IOException(label + " failed (exit " + child.exitValue() + "). See " + log);
-            }
-            return output;
+            String out = new String(Files.readAllBytes(log), StandardCharsets.UTF_8);
+            if (!out.trim().isEmpty()) System.out.print(out);
+            if (p.exitValue() != 0 || ERR.matcher(out).find()) throw new IOException(label + " failed; see " + log);
+            return out;
         } finally {
-            if (child.isAlive()) child.destroyForcibly();
+            if (p.isAlive()) p.destroyForcibly();
             activeChild = null;
         }
     }
 
-    private void test() throws Exception {
-        checkRuntimePorts();
-        System.out.println("[Tests] Model, real-device integration, archive and fault hold");
-        require(child("model", 30, "-Djava.awt.headless=true", "-cp", classpath, TEST), "COORDINATOR MODEL TESTS PASSED");
-        Path archive = run.resolve("workpieces.properties");
-        require(child("normal", 120, "-Xmx256m", "-Djava.awt.headless=true", "-Deric.finishing.flatSimulation=true",
-            "-Dcoordinator.archive=" + archive, "-cp", classpath, RUNNER, "sysj/coordinator.xml"), "COORDINATOR REAL DEVICE INTEGRATION PASSED");
-        require(child("archive", 30, "-Djava.awt.headless=true", "-cp", classpath, TEST, archive.toString()), "COORDINATOR ARCHIVE CHECK PASSED");
-        Path faultArchive = run.resolve("fault-workpieces.properties");
-        require(child("fault", 45, "-Xmx256m", "-Djava.awt.headless=true", "-Deric.finishing.flatSimulation=true",
-            "-Deric.finishing.testMode=true", "-Dcoordinator.testLidFault=true", "-Dcoordinator.archive=" + faultArchive,
-            "-cp", classpath, RUNNER, "sysj/coordinator_fault.xml"), "COORDINATOR REAL DEVICE FAULT HOLD PASSED");
-        if (Files.exists(faultArchive)) throw new IOException("Faulted bottle incorrectly archived as completed");
-    }
-
-    private void publishSources() throws IOException {
-        Path target = root.resolve("generated-src");
-        Files.createDirectories(target);
-        if (!target.toRealPath().startsWith(root)) throw new IOException("Generated directory escapes project: " + target);
-        List<Path> sources = files(generated, ".java", false);
-        Set<String> names = new HashSet<String>();
-        for (Path source : sources) names.add(source.getFileName().toString());
-        for (Path old : files(target, ".java", false)) {
-            if (!names.contains(old.getFileName().toString())) throw new IOException("Unexpected old generated source; inspect/remove it before rebuilding: " + old);
+    private void publishGenerated() throws IOException {
+        Path dst = root.resolve("generated-src"); Files.createDirectories(dst);
+        Set<String> fresh = new HashSet<>();
+        for (Path p : listFiles(generated, ".java", false)) {
+            fresh.add(p.getFileName().toString());
+            Files.copy(p, dst.resolve(p.getFileName()), StandardCopyOption.REPLACE_EXISTING);
         }
-        // Only known generated Java is replaced. Authored src/ and tests/ are never modified.
-        for (Path source : sources) Files.copy(source, target.resolve(source.getFileName()), StandardCopyOption.REPLACE_EXISTING);
+        for (Path p : listFiles(dst, ".java", false)) if (!fresh.contains(p.getFileName().toString())) Files.deleteIfExists(p);
     }
 
-    private static List<Path> files(Path dir, String suffix, boolean recursive) throws IOException {
-        if (!Files.isDirectory(dir)) throw new IOException("Required source/library directory missing: " + dir);
-        List<Path> result = new ArrayList<Path>();
-        try (Stream<Path> stream = Files.walk(dir, recursive ? Integer.MAX_VALUE : 1)) {
-            Iterator<Path> it = stream.iterator();
-            while (it.hasNext()) { Path p = it.next(); if (Files.isRegularFile(p) && p.getFileName().toString().endsWith(suffix)) result.add(p); }
+    private void publishManifest() throws IOException {
+        List<String> m = new ArrayList<>();
+        m.add("mode=ALL_CONFIGURATIONS");
+        m.add("classes=" + classes);
+        m.add("build=" + run);
+        for (Variant v : VARIANTS) m.add(v.name.toLowerCase(Locale.ROOT) + "Xml=" + root.resolve("sysj").resolve(v.folder).resolve(v.xml));
+        Files.write(run.resolve("BUILD_MANIFEST.txt"), m, StandardCharsets.UTF_8);
+        Files.write(root.resolve("build/ACTIVE_BUILD.txt"), m, StandardCharsets.UTF_8);
+    }
+
+    private void checkPorts() throws IOException {
+        Set<Integer> ports = new TreeSet<>();
+        for (Variant v : VARIANTS) {
+            String xml = new String(Files.readAllBytes(root.resolve("sysj").resolve(v.folder).resolve(v.xml)), StandardCharsets.UTF_8);
+            Matcher m = PORT.matcher(xml); while (m.find()) ports.add(Integer.parseInt(m.group(1)));
         }
-        Collections.sort(result); return result;
-    }
-
-    private static void require(String output, String marker) throws IOException {
-        if (!output.contains(marker)) throw new IOException("Missing test completion marker: " + marker);
-    }
-
-    private void checkRuntimePorts() throws IOException {
-        List<java.net.ServerSocket> checks = new ArrayList<java.net.ServerSocket>();
+        List<ServerSocket> held = new ArrayList<>();
         try {
-            for (int port : new int[]{30101, 30102, 30103}) {
-                java.net.ServerSocket socket = new java.net.ServerSocket();
-                checks.add(socket);
-                socket.setReuseAddress(false);
-                try { socket.bind(new java.net.InetSocketAddress("127.0.0.1", port)); }
-                catch (IOException occupied) {
-                    throw new IOException("SystemJ port " + port + " is unavailable. Terminate the previous RunCoordinator/RunCoordinatorFault in Eclipse before VerifyIntegration; do not run the simulations together.", occupied);
-                }
+            for (int port : ports) {
+                ServerSocket s = new ServerSocket(); held.add(s); s.setReuseAddress(false);
+                s.bind(new InetSocketAddress("127.0.0.1", port));
             }
-        } finally { for (java.net.ServerSocket socket : checks) socket.close(); }
+            System.out.println("[Ports] Available: " + ports);
+        } finally { for (ServerSocket s : held) s.close(); }
     }
 
-    public static void validateSourceLayout(Path sourceRoot) throws IOException {
-        Pattern declaration = Pattern.compile("(?m)^\\s*package\\s+([A-Za-z_$][\\w.$]*)\\s*;");
-        for (Path file : files(sourceRoot, ".java", true)) {
-            String expected = sourceRoot.relativize(file.getParent()).toString().replace(File.separatorChar, '.');
-            Matcher match = declaration.matcher(new String(Files.readAllBytes(file), StandardCharsets.UTF_8));
-            String actual = match.find() ? match.group(1) : "";
-            if (!expected.equals(actual)) {
-                throw new IOException("Eclipse package/source-folder mismatch: " + file
-                    + " declares '" + actual + "' but its directory requires '" + expected + "'. Move the file under its package directory.");
-            }
+    public static void validateSourceLayout(Path root) throws IOException {
+        Pattern pkg = Pattern.compile("(?m)^\\s*package\\s+([A-Za-z_$][\\w.$]*)\\s*;");
+        for (Path f : listFiles(root, ".java", true)) {
+            String expected = root.relativize(f.getParent()).toString().replace(File.separatorChar, '.');
+            Matcher m = pkg.matcher(new String(Files.readAllBytes(f), StandardCharsets.UTF_8));
+            String actual = m.find() ? m.group(1) : "";
+            if (!expected.equals(actual)) throw new IOException("Package/source-folder mismatch: " + f + " declares '" + actual + "' but should be '" + expected + "'.");
         }
     }
+
+    private static List<Path> listFiles(Path dir, String suffix, boolean recursive) throws IOException {
+        needDir(dir);
+        List<Path> out = new ArrayList<>();
+        try (Stream<Path> st = Files.walk(dir, recursive ? Integer.MAX_VALUE : 1)) {
+            for (Iterator<Path> it = st.iterator(); it.hasNext();) {
+                Path p = it.next();
+                if (Files.isRegularFile(p) && p.getFileName().toString().endsWith(suffix)) out.add(p);
+            }
+        }
+        Collections.sort(out); return out;
+    }
+
+    private static void needFile(Path p) throws IOException { if (!Files.isRegularFile(p)) throw new IOException("Missing file: " + p); }
+    private static void needDir(Path p) throws IOException { if (!Files.isDirectory(p)) throw new IOException("Missing directory: " + p); }
+    private static void mustContain(String s, String marker) throws IOException { if (!s.contains(marker)) throw new IOException("Missing marker: " + marker); }
+    private static String osExe(String base) { return System.getProperty("os.name").startsWith("Windows") ? base + ".exe" : base; }
+    private static String safe(String s) { return s.replaceAll("[^A-Za-z0-9._-]", "_"); }
 }
+

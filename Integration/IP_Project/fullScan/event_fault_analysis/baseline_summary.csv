@@ -1,0 +1,3 @@
+architecture,baseline_attempts,baseline_successes,baseline_failures,baseline_success_rate,mission_median_ms,mission_mean_ms,mission_stdev_ms,mission_mad_ms,mission_q1_ms,mission_q3_ms,mission_iqr_ms,mission_min_ms,mission_max_ms,mission_range_ms,largest_sorted_gap_ms,high_variance_warning,failure_reasons
+CENTRALISED,11,10,1,0.9090909090909091,13828.351999999999,12805.12408,1872.741687385471,478.1613500000003,10816.646050000001,14274.523799999999,3457.877749999998,10179.5839,14320.4402,4140.8562999999995,2496.2122,True,TABLE_ALIGNMENT_TIMEOUT:1
+DECOMPOSED_3CD,10,10,0,1.0,14345.981500000002,14290.52824,201.21850869430045,13.155249999999796,14336.941599999998,14360.092425,23.150825000002442,13721.9262,14410.8116,688.885400000001,600.8055000000004,False,

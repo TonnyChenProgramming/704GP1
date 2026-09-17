@@ -1,0 +1,3 @@
+# Keep this source folder present on a fresh clone, without committing generated code.
+*.java
+*.class

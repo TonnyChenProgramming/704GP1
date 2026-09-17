@@ -1,0 +1,433 @@
+<!-- Simulation acceptance: real controller/plant pairs; ONLY the batch source is a harness.
+
+     SafetyMonitorCD is an interactive stand-in for human-presence/environmental sensors
+
+     until the operator GUI wires ACKNOWLEDGE_HAZARD/SAFE_RESET directly. -->
+
+<System xmlns="http://systemjtechnology.com">
+
+    <SubSystem Name="IntegratedCoordinatorAcceptance" Local="true">
+
+        <ClockDomain Name="CoordinatorBatchHarnessCD" Class="CoordinatorBatchHarnessCD">
+
+            <oChannel Name="activateBatchOut" To="BatchCoordinatorCD.activateBatchIn" />
+
+            <iChannel Name="batchResultIn" From="BatchCoordinatorCD.batchDrainedOut" />
+
+        </ClockDomain>
+
+        <ClockDomain Name="SafetyMonitorCD" Class="SafetyMonitorCD">
+
+            <oSignal Name="safetyPermitLost" To="SafetyCoordinatorCD.safetyPermitLost" Class="com.systemj.ipc.SimpleClient" IP="127.0.0.1" Port="30103" />
+
+            <oSignal Name="safetyPermitRestored" To="SafetyCoordinatorCD.safetyPermitRestored" Class="com.systemj.ipc.SimpleClient" IP="127.0.0.1" Port="30104" />
+
+            <oSignal Name="safetyResetRequested" To="SafetyCoordinatorCD.safetyResetRequested" Class="com.systemj.ipc.SimpleClient" IP="127.0.0.1" Port="30105" />
+
+        </ClockDomain>
+
+        <ClockDomain Name="BatchCoordinatorCD" Class="BatchCoordinatorCD">
+
+            <iChannel Name="activateBatchIn" From="CoordinatorBatchHarnessCD.activateBatchOut" />
+
+            <oChannel Name="batchDrainedOut" To="CoordinatorBatchHarnessCD.batchResultIn" />
+
+            <oChannel Name="productionBatchOut" To="ProductionCoordinatorCD.batchIn" />
+
+            <iChannel Name="productionEventIn" From="ProductionCoordinatorCD.batchEventOut" />
+
+            <iChannel Name="safetyResetIn" From="SafetyCoordinatorCD.batchSafetyResetOut" />
+
+        </ClockDomain>
+
+        <ClockDomain Name="ProductionCoordinatorCD" Class="ProductionCoordinatorCD">
+
+            <iChannel Name="batchIn" From="BatchCoordinatorCD.productionBatchOut" />
+
+            <oChannel Name="batchEventOut" To="BatchCoordinatorCD.productionEventIn" />
+
+            <iChannel Name="safetyHoldIn" From="SafetyCoordinatorCD.productionSafetyHoldOut" />
+
+            <iChannel Name="safetyResetIn" From="SafetyCoordinatorCD.productionSafetyResetOut" />
+
+            <oChannel Name="safetyResetDoneOut" To="SafetyCoordinatorCD.productionSafetyResetDoneIn" />
+
+            <oChannel Name="loaderJobOut" To="BottleLoaderController.commandIn" />
+
+            <iChannel Name="loaderReportIn" From="BottleLoaderController.reportOut" />
+
+            <oChannel Name="loaderAckOut" To="BottleLoaderController.ackIn" />
+
+            <oChannel Name="conveyorJobOut" To="ConveyorController.commandIn" />
+
+            <iChannel Name="conveyorReportIn" From="ConveyorController.reportOut" />
+
+            <oChannel Name="conveyorAckOut" To="ConveyorController.ackIn" />
+
+            <oChannel Name="fillerJobOut" To="TwoLiquidFillerController.commandIn" />
+
+            <iChannel Name="fillerReportIn" From="TwoLiquidFillerController.reportOut" />
+
+            <oChannel Name="fillerAckOut" To="TwoLiquidFillerController.ackIn" />
+
+            <oChannel Name="lidJobOut" To="LidLoaderShimCD.commandIn" />
+
+            <iChannel Name="lidReportIn" From="LidLoaderShimCD.reportOut" />
+
+            <oChannel Name="lidAckOut" To="LidLoaderShimCD.ackIn" />
+
+            <oChannel Name="capperJobOut" To="CapperShimCD.commandIn" />
+
+            <iChannel Name="capperReportIn" From="CapperShimCD.reportOut" />
+
+            <oChannel Name="capperAckOut" To="CapperShimCD.ackIn" />
+
+            <oChannel Name="labellerJobOut" To="LabelerShimCD.commandIn" />
+
+            <iChannel Name="labellerReportIn" From="LabelerShimCD.reportOut" />
+
+            <oChannel Name="labellerAckOut" To="LabelerShimCD.ackIn" />
+
+            <oChannel Name="unloaderJobOut" To="UnloaderShimCD.commandIn" />
+
+            <iChannel Name="unloaderReportIn" From="UnloaderShimCD.reportOut" />
+
+            <oChannel Name="unloaderAckOut" To="UnloaderShimCD.ackIn" />
+
+            <oSignal Name="rotateTrigger" To="RotaryTableController.rotateTrigger" Class="com.systemj.ipc.SimpleClient" IP="127.0.0.1" Port="30101" />
+
+            <iSignal Name="tableAligned" Class="com.systemj.ipc.SimpleServer" IP="127.0.0.1" Port="30102" />
+
+        </ClockDomain>
+
+        <ClockDomain Name="SafetyCoordinatorCD" Class="SafetyCoordinatorCD">
+
+            <iSignal Name="safetyPermitLost" Class="com.systemj.ipc.SimpleServer" IP="127.0.0.1" Port="30103" />
+
+            <iSignal Name="safetyPermitRestored" Class="com.systemj.ipc.SimpleServer" IP="127.0.0.1" Port="30104" />
+
+            <iSignal Name="safetyResetRequested" Class="com.systemj.ipc.SimpleServer" IP="127.0.0.1" Port="30105" />
+
+            <oChannel Name="productionSafetyHoldOut" To="ProductionCoordinatorCD.safetyHoldIn" />
+
+            <oChannel Name="productionSafetyResetOut" To="ProductionCoordinatorCD.safetyResetIn" />
+
+            <iChannel Name="productionSafetyResetDoneIn" From="ProductionCoordinatorCD.safetyResetDoneOut" />
+
+            <oChannel Name="batchSafetyResetOut" To="BatchCoordinatorCD.safetyResetIn" />
+
+        </ClockDomain>
+
+        <ClockDomain Name="BottleLoaderController" Class="BottleLoaderController">
+
+            <iChannel Name="commandIn" From="ProductionCoordinatorCD.loaderJobOut" />
+
+            <oChannel Name="reportOut" To="ProductionCoordinatorCD.loaderReportIn" />
+
+            <iChannel Name="ackIn" From="ProductionCoordinatorCD.loaderAckOut" />
+
+            <oChannel Name="load" To="BottleLoaderPlant.load" />
+
+            <oChannel Name="retract" To="BottleLoaderPlant.retract" />
+
+            <iChannel Name="bottleAvailable" From="BottleLoaderPlant.bottleAvailable" />
+
+            <iChannel Name="placed" From="BottleLoaderPlant.placed" />
+
+            <iChannel Name="armHome" From="BottleLoaderPlant.armHome" />
+
+        </ClockDomain>
+
+        <ClockDomain Name="ConveyorController" Class="ConveyorController">
+
+            <iChannel Name="commandIn" From="ProductionCoordinatorCD.conveyorJobOut" />
+
+            <oChannel Name="reportOut" To="ProductionCoordinatorCD.conveyorReportIn" />
+
+            <iChannel Name="ackIn" From="ProductionCoordinatorCD.conveyorAckOut" />
+
+            <oChannel Name="motorRun" To="ConveyorPlant.motorRun" />
+
+            <iChannel Name="photoEye" From="ConveyorPlant.photoEye" />
+
+            <iChannel Name="bottleLeft" From="ConveyorPlant.bottleLeft" />
+
+        </ClockDomain>
+
+        <ClockDomain Name="TwoLiquidFillerController" Class="TwoLiquidFillerController">
+
+            <iChannel Name="commandIn" From="ProductionCoordinatorCD.fillerJobOut" />
+
+            <oChannel Name="reportOut" To="ProductionCoordinatorCD.fillerReportIn" />
+
+            <iChannel Name="ackIn" From="ProductionCoordinatorCD.fillerAckOut" />
+
+            <oChannel Name="dose1" To="TwoLiquidFillerPlant.dose1" />
+
+            <oChannel Name="dose2" To="TwoLiquidFillerPlant.dose2" />
+
+            <iChannel Name="bottlePresent" From="TwoLiquidFillerPlant.bottlePresent" />
+
+            <iChannel Name="dose1Done" From="TwoLiquidFillerPlant.dose1Done" />
+
+            <iChannel Name="dose2Done" From="TwoLiquidFillerPlant.dose2Done" />
+
+            <iChannel Name="overflow" From="TwoLiquidFillerPlant.overflow" />
+
+            <iChannel Name="currentAmountA" From="TwoLiquidFillerPlant.currentAmountA" />
+
+			<iChannel Name="currentAmountB" From="TwoLiquidFillerPlant.currentAmountB" />
+
+        </ClockDomain>
+
+        <ClockDomain Name="LidLoaderShimCD" Class="LidLoaderShimCD">
+
+            <iChannel Name="commandIn" From="ProductionCoordinatorCD.lidJobOut" />
+
+            <oChannel Name="reportOut" To="ProductionCoordinatorCD.lidReportIn" />
+
+            <iChannel Name="ackIn" From="ProductionCoordinatorCD.lidAckOut" />
+
+            <oChannel Name="deviceJobOut" To="LidLoaderControllerCD.jobIn" />
+
+            <iChannel Name="deviceReportIn" From="LidLoaderControllerCD.reportOut" />
+
+            <oChannel Name="deviceAckOut" To="LidLoaderControllerCD.ackIn" />
+
+            <oChannel Name="deviceControlOut" To="LidLoaderControllerCD.controlIn" />
+
+            <iChannel Name="deviceControlReplyIn" From="LidLoaderControllerCD.controlReplyOut" />
+
+        </ClockDomain>
+
+        <ClockDomain Name="CapperShimCD" Class="CapperShimCD">
+
+            <iChannel Name="commandIn" From="ProductionCoordinatorCD.capperJobOut" />
+
+            <oChannel Name="reportOut" To="ProductionCoordinatorCD.capperReportIn" />
+
+            <iChannel Name="ackIn" From="ProductionCoordinatorCD.capperAckOut" />
+
+            <oChannel Name="deviceJobOut" To="CapperControllerCD.jobIn" />
+
+            <iChannel Name="deviceReportIn" From="CapperControllerCD.reportOut" />
+
+            <oChannel Name="deviceAckOut" To="CapperControllerCD.ackIn" />
+
+            <oChannel Name="deviceControlOut" To="CapperControllerCD.controlIn" />
+
+            <iChannel Name="deviceControlReplyIn" From="CapperControllerCD.controlReplyOut" />
+
+        </ClockDomain>
+
+        <ClockDomain Name="LabelerShimCD" Class="LabelerShimCD">
+
+            <iChannel Name="commandIn" From="ProductionCoordinatorCD.labellerJobOut" />
+
+            <oChannel Name="reportOut" To="ProductionCoordinatorCD.labellerReportIn" />
+
+            <iChannel Name="ackIn" From="ProductionCoordinatorCD.labellerAckOut" />
+
+            <oChannel Name="deviceJobOut" To="LabelerControllerCD.jobIn" />
+
+            <iChannel Name="deviceReportIn" From="LabelerControllerCD.reportOut" />
+
+            <oChannel Name="deviceAckOut" To="LabelerControllerCD.ackIn" />
+
+            <oChannel Name="deviceControlOut" To="LabelerControllerCD.controlIn" />
+
+            <iChannel Name="deviceControlReplyIn" From="LabelerControllerCD.controlReplyOut" />
+
+        </ClockDomain>
+
+        <ClockDomain Name="UnloaderShimCD" Class="UnloaderShimCD">
+
+            <iChannel Name="commandIn" From="ProductionCoordinatorCD.unloaderJobOut" />
+
+            <oChannel Name="reportOut" To="ProductionCoordinatorCD.unloaderReportIn" />
+
+            <iChannel Name="ackIn" From="ProductionCoordinatorCD.unloaderAckOut" />
+
+            <oChannel Name="deviceJobOut" To="UnloaderControllerCD.jobIn" />
+
+            <iChannel Name="deviceReportIn" From="UnloaderControllerCD.reportOut" />
+
+            <oChannel Name="deviceAckOut" To="UnloaderControllerCD.ackIn" />
+
+            <oChannel Name="deviceControlOut" To="UnloaderControllerCD.controlIn" />
+
+            <iChannel Name="deviceControlReplyIn" From="UnloaderControllerCD.controlReplyOut" />
+
+        </ClockDomain>
+
+        <ClockDomain Name="BottleLoaderPlant" Class="BottleLoaderPlant">
+
+            <iChannel Name="load" From="BottleLoaderController.load" />
+
+            <iChannel Name="retract" From="BottleLoaderController.retract" />
+
+            <oChannel Name="bottleAvailable" To="BottleLoaderController.bottleAvailable" />
+
+            <oChannel Name="placed" To="BottleLoaderController.placed" />
+
+            <oChannel Name="armHome" To="BottleLoaderController.armHome" />
+
+        </ClockDomain>
+
+        <ClockDomain Name="ConveyorPlant" Class="ConveyorPlant">
+
+            <iChannel Name="motorRun" From="ConveyorController.motorRun" />
+
+            <oChannel Name="photoEye" To="ConveyorController.photoEye" />
+
+            <oChannel Name="bottleLeft" To="ConveyorController.bottleLeft" />
+
+        </ClockDomain>
+
+        <ClockDomain Name="TwoLiquidFillerPlant" Class="TwoLiquidFillerPlant">
+
+            <iChannel Name="dose1" From="TwoLiquidFillerController.dose1" />
+
+            <iChannel Name="dose2" From="TwoLiquidFillerController.dose2" />
+
+            <oChannel Name="bottlePresent" To="TwoLiquidFillerController.bottlePresent" />
+
+            <oChannel Name="dose1Done" To="TwoLiquidFillerController.dose1Done" />
+
+            <oChannel Name="dose2Done" To="TwoLiquidFillerController.dose2Done" />
+
+            <oChannel Name="overflow" To="TwoLiquidFillerController.overflow" />
+
+            <oChannel Name="currentAmountA" To="TwoLiquidFillerController.currentAmountA" />
+
+			<oChannel Name="currentAmountB" To="TwoLiquidFillerController.currentAmountB" />
+
+        </ClockDomain>
+
+        <ClockDomain Name="RotaryTableController" Class="DecomposedRotaryTableController">
+
+            <oChannel Name="rotate" To="RotaryTablePlant.rotate" />
+
+            <iChannel Name="aligned" From="RotaryTablePlant.aligned" />
+
+            <iSignal Name="rotateTrigger" Class="com.systemj.ipc.SimpleServer" IP="127.0.0.1" Port="30101" />
+
+            <oSignal Name="tableAligned" To="ProductionCoordinatorCD.tableAligned" Class="com.systemj.ipc.SimpleClient" IP="127.0.0.1" Port="30102" />
+
+        </ClockDomain>
+
+        <ClockDomain Name="RotaryTablePlant" Class="RotaryTablePlant">
+
+            <iChannel Name="rotate" From="RotaryTableController.rotate" />
+
+            <oChannel Name="aligned" To="RotaryTableController.aligned" />
+
+        </ClockDomain>
+
+        <ClockDomain Name="LidLoaderControllerCD" Class="LidLoaderControllerCD">
+
+            <iChannel Name="jobIn" From="LidLoaderShimCD.deviceJobOut" />
+
+            <oChannel Name="reportOut" To="LidLoaderShimCD.deviceReportIn" />
+
+            <iChannel Name="ackIn" From="LidLoaderShimCD.deviceAckOut" />
+
+            <iChannel Name="controlIn" From="LidLoaderShimCD.deviceControlOut" />
+
+            <oChannel Name="controlReplyOut" To="LidLoaderShimCD.deviceControlReplyIn" />
+
+            <oChannel Name="plantCommandOut" To="LidLoaderPlantCD.commandIn" />
+
+            <iChannel Name="plantEvidenceIn" From="LidLoaderPlantCD.evidenceOut" />
+
+        </ClockDomain>
+
+        <ClockDomain Name="LidLoaderPlantCD" Class="LidLoaderPlantCD">
+
+            <iChannel Name="commandIn" From="LidLoaderControllerCD.plantCommandOut" />
+
+            <oChannel Name="evidenceOut" To="LidLoaderControllerCD.plantEvidenceIn" />
+
+        </ClockDomain>
+
+        <ClockDomain Name="CapperControllerCD" Class="CapperControllerCD">
+
+            <iChannel Name="jobIn" From="CapperShimCD.deviceJobOut" />
+
+            <oChannel Name="reportOut" To="CapperShimCD.deviceReportIn" />
+
+            <iChannel Name="ackIn" From="CapperShimCD.deviceAckOut" />
+
+            <iChannel Name="controlIn" From="CapperShimCD.deviceControlOut" />
+
+            <oChannel Name="controlReplyOut" To="CapperShimCD.deviceControlReplyIn" />
+
+            <oChannel Name="plantCommandOut" To="CapperPlantCD.commandIn" />
+
+            <iChannel Name="plantEvidenceIn" From="CapperPlantCD.evidenceOut" />
+
+        </ClockDomain>
+
+        <ClockDomain Name="CapperPlantCD" Class="CapperPlantCD">
+
+            <iChannel Name="commandIn" From="CapperControllerCD.plantCommandOut" />
+
+            <oChannel Name="evidenceOut" To="CapperControllerCD.plantEvidenceIn" />
+
+        </ClockDomain>
+
+        <ClockDomain Name="LabelerControllerCD" Class="LabelerControllerCD">
+
+            <iChannel Name="jobIn" From="LabelerShimCD.deviceJobOut" />
+
+            <oChannel Name="reportOut" To="LabelerShimCD.deviceReportIn" />
+
+            <iChannel Name="ackIn" From="LabelerShimCD.deviceAckOut" />
+
+            <iChannel Name="controlIn" From="LabelerShimCD.deviceControlOut" />
+
+            <oChannel Name="controlReplyOut" To="LabelerShimCD.deviceControlReplyIn" />
+
+            <oChannel Name="plantCommandOut" To="LabelerPlantCD.commandIn" />
+
+            <iChannel Name="plantEvidenceIn" From="LabelerPlantCD.evidenceOut" />
+
+        </ClockDomain>
+
+        <ClockDomain Name="LabelerPlantCD" Class="LabelerPlantCD">
+
+            <iChannel Name="commandIn" From="LabelerControllerCD.plantCommandOut" />
+
+            <oChannel Name="evidenceOut" To="LabelerControllerCD.plantEvidenceIn" />
+
+        </ClockDomain>
+
+        <ClockDomain Name="UnloaderControllerCD" Class="UnloaderControllerCD">
+
+            <iChannel Name="jobIn" From="UnloaderShimCD.deviceJobOut" />
+
+            <oChannel Name="reportOut" To="UnloaderShimCD.deviceReportIn" />
+
+            <iChannel Name="ackIn" From="UnloaderShimCD.deviceAckOut" />
+
+            <iChannel Name="controlIn" From="UnloaderShimCD.deviceControlOut" />
+
+            <oChannel Name="controlReplyOut" To="UnloaderShimCD.deviceControlReplyIn" />
+
+            <oChannel Name="plantCommandOut" To="UnloaderPlantCD.commandIn" />
+
+            <iChannel Name="plantEvidenceIn" From="UnloaderPlantCD.evidenceOut" />
+
+        </ClockDomain>
+
+        <ClockDomain Name="UnloaderPlantCD" Class="UnloaderPlantCD">
+
+            <iChannel Name="commandIn" From="UnloaderControllerCD.plantCommandOut" />
+
+            <oChannel Name="evidenceOut" To="UnloaderControllerCD.plantEvidenceIn" />
+
+        </ClockDomain>
+
+    </SubSystem>
+
+</System>

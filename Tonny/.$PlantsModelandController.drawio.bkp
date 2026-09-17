@@ -1,11 +1,11 @@
 <mxfile host="Electron">
   <diagram name="Page-1" id="17At82IzJ8hijhJZ-mSm">
-    <mxGraphModel dx="620" dy="562" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+    <mxGraphModel dx="1579" dy="701" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
         <mxCell id="j7NvGMMj7Zj_qrViYoqN-1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="" vertex="1">
-          <mxGeometry height="60" width="120" x="70" y="270" as="geometry" />
+          <mxGeometry height="60" width="120" x="-100" y="270" as="geometry" />
         </mxCell>
         <mxCell id="j7NvGMMj7Zj_qrViYoqN-2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="" vertex="1">
           <mxGeometry height="60" width="120" x="220" y="270" as="geometry" />
@@ -15,6 +15,130 @@
         </mxCell>
         <mxCell id="j7NvGMMj7Zj_qrViYoqN-4" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="" vertex="1">
           <mxGeometry height="60" width="120" x="520" y="270" as="geometry" />
+        </mxCell>
+        <mxCell id="j7NvGMMj7Zj_qrViYoqN-5" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="" vertex="1">
+          <mxGeometry height="60" width="120" x="-100" y="150" as="geometry" />
+        </mxCell>
+        <mxCell id="j7NvGMMj7Zj_qrViYoqN-6" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="" vertex="1">
+          <mxGeometry height="60" width="120" x="220" y="150" as="geometry" />
+        </mxCell>
+        <mxCell id="j7NvGMMj7Zj_qrViYoqN-7" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="" vertex="1">
+          <mxGeometry height="70" width="120" x="370" y="150" as="geometry" />
+        </mxCell>
+        <mxCell id="j7NvGMMj7Zj_qrViYoqN-9" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="" vertex="1">
+          <mxGeometry height="70" width="120" x="520" y="145" as="geometry" />
+        </mxCell>
+        <mxCell id="j7NvGMMj7Zj_qrViYoqN-11" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Plants" vertex="1">
+          <mxGeometry height="30" width="60" x="-290" y="290" as="geometry" />
+        </mxCell>
+        <mxCell id="j7NvGMMj7Zj_qrViYoqN-12" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Controller" vertex="1">
+          <mxGeometry height="30" width="60" x="-280" y="170" as="geometry" />
+        </mxCell>
+        <mxCell id="j7NvGMMj7Zj_qrViYoqN-13" edge="1" parent="1" source="j7NvGMMj7Zj_qrViYoqN-5" style="endArrow=classic;html=1;rounded=0;exitX=0.137;exitY=1.003;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.137;entryY=-0.009;entryDx=0;entryDy=0;entryPerimeter=0;" target="j7NvGMMj7Zj_qrViYoqN-1" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="-40" y="260" as="sourcePoint" />
+            <mxPoint x="10" y="210" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="j7NvGMMj7Zj_qrViYoqN-14" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="load &amp;amp; retract" vertex="1">
+          <mxGeometry height="30" width="90" x="-200" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="j7NvGMMj7Zj_qrViYoqN-15" edge="1" parent="1" source="j7NvGMMj7Zj_qrViYoqN-1" style="endArrow=classic;html=1;rounded=0;entryX=0.75;entryY=1;entryDx=0;entryDy=0;exitX=0.75;exitY=0;exitDx=0;exitDy=0;" target="j7NvGMMj7Zj_qrViYoqN-5" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="-20" y="270" as="sourcePoint" />
+            <mxPoint x="30" y="220" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="j7NvGMMj7Zj_qrViYoqN-16" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="bottle availability, placed, and arm-home sensor" vertex="1">
+          <mxGeometry height="30" width="140" x="-10" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="j7NvGMMj7Zj_qrViYoqN-17" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="" vertex="1">
+          <mxGeometry height="180" width="340" x="-240" y="650" as="geometry" />
+        </mxCell>
+        <mxCell id="j7NvGMMj7Zj_qrViYoqN-18" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Bottle Loader" vertex="1">
+          <mxGeometry height="30" width="100" x="-510" y="840" as="geometry" />
+        </mxCell>
+        <mxCell id="j7NvGMMj7Zj_qrViYoqN-19" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="sensor" vertex="1">
+          <mxGeometry height="60" width="60" x="-220" y="740" as="geometry" />
+        </mxCell>
+        <mxCell id="j7NvGMMj7Zj_qrViYoqN-20" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Actuator" vertex="1">
+          <mxGeometry height="60" width="60" x="20" y="740" as="geometry" />
+        </mxCell>
+        <mxCell id="j7NvGMMj7Zj_qrViYoqN-21" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="FSM" vertex="1">
+          <mxGeometry height="60" width="120" x="-130" y="740" as="geometry" />
+        </mxCell>
+        <mxCell id="j7NvGMMj7Zj_qrViYoqN-22" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Local Storage" vertex="1">
+          <mxGeometry height="60" width="120" x="-130" y="660" as="geometry" />
+        </mxCell>
+        <mxCell id="j7NvGMMj7Zj_qrViYoqN-23" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Plant Baisc Model" vertex="1">
+          <mxGeometry height="30" width="110" x="-240" y="590" as="geometry" />
+        </mxCell>
+        <mxCell id="j7NvGMMj7Zj_qrViYoqN-24" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Local Storage: for local vairable storage&lt;div&gt;FSM: for local control flow&lt;/div&gt;&lt;div&gt;sensor: model local sensor&lt;/div&gt;&lt;div&gt;Actuator: model local actuator&lt;/div&gt;" vertex="1">
+          <mxGeometry height="30" width="230" x="-80" y="580" as="geometry" />
+        </mxCell>
+        <mxCell id="9DYMD9Vt-7y5c1xlurFz-1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Bottle Loader, Conveyor, Rotary Table, and Two-Liquid Filler controllers &lt;br/&gt;and plant models " vertex="1">
+          <mxGeometry height="30" width="430" x="-750" y="490" as="geometry" />
+        </mxCell>
+        <mxCell id="9DYMD9Vt-7y5c1xlurFz-2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="" vertex="1">
+          <mxGeometry height="180" width="340" x="-260" y="1390" as="geometry" />
+        </mxCell>
+        <mxCell id="9DYMD9Vt-7y5c1xlurFz-3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="sensor" vertex="1">
+          <mxGeometry height="60" width="60" x="-240" y="1480" as="geometry" />
+        </mxCell>
+        <mxCell id="9DYMD9Vt-7y5c1xlurFz-4" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Actuator" vertex="1">
+          <mxGeometry height="60" width="60" y="1480" as="geometry" />
+        </mxCell>
+        <mxCell id="9DYMD9Vt-7y5c1xlurFz-5" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Input/Process/Update" vertex="1">
+          <mxGeometry height="60" width="120" x="-150" y="1480" as="geometry" />
+        </mxCell>
+        <mxCell id="9DYMD9Vt-7y5c1xlurFz-6" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Local Storage" vertex="1">
+          <mxGeometry height="60" width="120" x="-150" y="1400" as="geometry" />
+        </mxCell>
+        <mxCell id="9DYMD9Vt-7y5c1xlurFz-7" edge="1" parent="1" source="9DYMD9Vt-7y5c1xlurFz-5" style="endArrow=none;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;exitX=0;exitY=0.25;exitDx=0;exitDy=0;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <Array as="points">
+              <mxPoint x="-170" y="1495" />
+              <mxPoint x="-170" y="1250" />
+            </Array>
+            <mxPoint x="-240" y="1300" as="sourcePoint" />
+            <mxPoint x="-170" y="1250" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="9DYMD9Vt-7y5c1xlurFz-8" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="load, retract" vertex="1">
+          <mxGeometry height="30" width="60" x="-200" y="1220" as="geometry" />
+        </mxCell>
+        <mxCell id="9DYMD9Vt-7y5c1xlurFz-9" edge="1" parent="1" source="9DYMD9Vt-7y5c1xlurFz-3" style="endArrow=none;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;exitX=0.25;exitY=0;exitDx=0;exitDy=0;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <Array as="points">
+              <mxPoint x="-225" y="1230" />
+            </Array>
+            <mxPoint x="-250" y="1459.9999999999998" as="sourcePoint" />
+            <mxPoint x="-225" y="1210" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="9DYMD9Vt-7y5c1xlurFz-10" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="bottle available, placed, and arm-home" vertex="1">
+          <mxGeometry height="30" width="130" x="-330" y="1180" as="geometry" />
+        </mxCell>
+        <mxCell id="6WB-gsWVKxOXfoHMiFw6-1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="" vertex="1">
+          <mxGeometry height="180" width="340" x="-270" y="980" as="geometry" />
+        </mxCell>
+        <mxCell id="6WB-gsWVKxOXfoHMiFw6-2" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="plant" vertex="1">
+          <mxGeometry height="30" width="60" x="-400" y="1480" as="geometry" />
+        </mxCell>
+        <mxCell id="6WB-gsWVKxOXfoHMiFw6-3" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="controller" vertex="1">
+          <mxGeometry height="30" width="60" x="-370" y="1055" as="geometry" />
+        </mxCell>
+        <mxCell id="6WB-gsWVKxOXfoHMiFw6-4" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;entryX=0.75;entryY=0;entryDx=0;entryDy=0;" target="6WB-gsWVKxOXfoHMiFw6-1" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="-15" y="930" as="sourcePoint" />
+            <mxPoint x="-80" y="880" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="6WB-gsWVKxOXfoHMiFw6-5" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="START(workpieceId, operationData)" vertex="1">
+          <mxGeometry height="30" width="220" x="-100" y="900" as="geometry" />
+        </mxCell>
+        <mxCell id="6WB-gsWVKxOXfoHMiFw6-6" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="DONE(workpirceID)" vertex="1">
+          <mxGeometry height="30" width="220" x="-330" y="900" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>

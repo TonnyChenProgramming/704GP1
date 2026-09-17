@@ -1,0 +1,2 @@
+architecture,xml,successful_baselines_required,baseline_attempts,baseline_failures,baseline_success_rate,median_ms,mean_ms,stdev_ms,mad_ms,noise_band_ms,successful_mission_times_ms
+CENTRALISED,sysj/coordinator.xml,3,3,0,1.0,10154.516,10146.112866666666,16.76448669429927,2.4979000000002998,100.0,10157.013900;10154.516000;10126.808700

@@ -1,0 +1,15 @@
+event,occurrence,label
+BATCH_ACCEPTED,1,after_valid_B2_acceptance
+LOADER_DONE,1,after_first_bottle_admitted
+CONVEYOR_DONE,1,after_first_bottle_transfer_to_rotary
+TABLE_ALIGNED,1,after_first_confirmed_rotation
+FILLER_DONE,1,after_first_bottle_fill
+LID_DONE,1,after_first_bottle_lid
+CAPPER_DONE,1,after_first_bottle_cap
+LABELLER_DONE,1,after_first_bottle_label
+UNLOADER_DONE,1,after_first_bottle_completion
+LOADER_DONE,2,after_second_bottle_admitted
+CONVEYOR_DONE,2,after_second_bottle_transfer_to_rotary
+FILLER_DONE,2,after_second_bottle_fill
+TABLE_ALIGNED,3,after_third_confirmed_rotation
+TABLE_ALIGNED,5,after_fifth_confirmed_rotation

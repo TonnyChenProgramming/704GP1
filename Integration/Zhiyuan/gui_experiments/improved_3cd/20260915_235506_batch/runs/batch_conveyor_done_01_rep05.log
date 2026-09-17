@@ -1,0 +1,195 @@
+DEBUG : initialized BatchCoordinatorCD.activateBatchIn_in, CoordinatorBatchHarnessCD.activateBatchOut_o
+DEBUG : initialized CoordinatorBatchHarnessCD.batchResultIn_in, BatchCoordinatorCD.batchDrainedOut_o
+DEBUG : initialized ProductionCoordinatorCD.batchIn_in, BatchCoordinatorCD.productionBatchOut_o
+DEBUG : initialized BatchCoordinatorCD.productionEventIn_in, ProductionCoordinatorCD.batchEventOut_o
+DEBUG : initialized BatchCoordinatorCD.safetyResetIn_in, SafetyCoordinatorCD.batchSafetyResetOut_o
+DEBUG : initialized ProductionCoordinatorCD.safetyHoldIn_in, SafetyCoordinatorCD.productionSafetyHoldOut_o
+DEBUG : initialized ProductionCoordinatorCD.safetyResetIn_in, SafetyCoordinatorCD.productionSafetyResetOut_o
+DEBUG : initialized SafetyCoordinatorCD.productionSafetyResetDoneIn_in, ProductionCoordinatorCD.safetyResetDoneOut_o
+DEBUG : initialized BottleLoaderController.commandIn_in, ProductionCoordinatorCD.loaderJobOut_o
+DEBUG : initialized ProductionCoordinatorCD.loaderReportIn_in, BottleLoaderController.reportOut_o
+DEBUG : initialized BottleLoaderController.ackIn_in, ProductionCoordinatorCD.loaderAckOut_o
+DEBUG : initialized ConveyorController.commandIn_in, ProductionCoordinatorCD.conveyorJobOut_o
+DEBUG : initialized ProductionCoordinatorCD.conveyorReportIn_in, ConveyorController.reportOut_o
+DEBUG : initialized ConveyorController.ackIn_in, ProductionCoordinatorCD.conveyorAckOut_o
+DEBUG : initialized TwoLiquidFillerController.commandIn_in, ProductionCoordinatorCD.fillerJobOut_o
+DEBUG : initialized ProductionCoordinatorCD.fillerReportIn_in, TwoLiquidFillerController.reportOut_o
+DEBUG : initialized TwoLiquidFillerController.ackIn_in, ProductionCoordinatorCD.fillerAckOut_o
+DEBUG : initialized LidLoaderShimCD.commandIn_in, ProductionCoordinatorCD.lidJobOut_o
+DEBUG : initialized ProductionCoordinatorCD.lidReportIn_in, LidLoaderShimCD.reportOut_o
+DEBUG : initialized LidLoaderShimCD.ackIn_in, ProductionCoordinatorCD.lidAckOut_o
+DEBUG : initialized CapperShimCD.commandIn_in, ProductionCoordinatorCD.capperJobOut_o
+DEBUG : initialized ProductionCoordinatorCD.capperReportIn_in, CapperShimCD.reportOut_o
+DEBUG : initialized CapperShimCD.ackIn_in, ProductionCoordinatorCD.capperAckOut_o
+DEBUG : initialized LabelerShimCD.commandIn_in, ProductionCoordinatorCD.labellerJobOut_o
+DEBUG : initialized ProductionCoordinatorCD.labellerReportIn_in, LabelerShimCD.reportOut_o
+DEBUG : initialized LabelerShimCD.ackIn_in, ProductionCoordinatorCD.labellerAckOut_o
+DEBUG : initialized UnloaderShimCD.commandIn_in, ProductionCoordinatorCD.unloaderJobOut_o
+DEBUG : initialized ProductionCoordinatorCD.unloaderReportIn_in, UnloaderShimCD.reportOut_o
+DEBUG : initialized UnloaderShimCD.ackIn_in, ProductionCoordinatorCD.unloaderAckOut_o
+DEBUG : initialized BottleLoaderPlant.load_in, BottleLoaderController.load_o
+DEBUG : initialized BottleLoaderPlant.retract_in, BottleLoaderController.retract_o
+DEBUG : initialized BottleLoaderController.bottleAvailable_in, BottleLoaderPlant.bottleAvailable_o
+DEBUG : initialized BottleLoaderController.placed_in, BottleLoaderPlant.placed_o
+DEBUG : initialized BottleLoaderController.armHome_in, BottleLoaderPlant.armHome_o
+DEBUG : initialized ConveyorPlant.motorRun_in, ConveyorController.motorRun_o
+DEBUG : initialized ConveyorController.photoEye_in, ConveyorPlant.photoEye_o
+DEBUG : initialized ConveyorController.bottleLeft_in, ConveyorPlant.bottleLeft_o
+DEBUG : initialized TwoLiquidFillerPlant.dose1_in, TwoLiquidFillerController.dose1_o
+DEBUG : initialized TwoLiquidFillerPlant.dose2_in, TwoLiquidFillerController.dose2_o
+DEBUG : initialized TwoLiquidFillerController.bottlePresent_in, TwoLiquidFillerPlant.bottlePresent_o
+DEBUG : initialized TwoLiquidFillerController.dose1Done_in, TwoLiquidFillerPlant.dose1Done_o
+DEBUG : initialized TwoLiquidFillerController.dose2Done_in, TwoLiquidFillerPlant.dose2Done_o
+DEBUG : initialized TwoLiquidFillerController.overflow_in, TwoLiquidFillerPlant.overflow_o
+DEBUG : initialized TwoLiquidFillerController.currentAmountA_in, TwoLiquidFillerPlant.currentAmountA_o
+DEBUG : initialized TwoLiquidFillerController.currentAmountB_in, TwoLiquidFillerPlant.currentAmountB_o
+DEBUG : initialized LidLoaderControllerCD.jobIn_in, LidLoaderShimCD.deviceJobOut_o
+DEBUG : initialized LidLoaderShimCD.deviceReportIn_in, LidLoaderControllerCD.reportOut_o
+DEBUG : initialized LidLoaderControllerCD.ackIn_in, LidLoaderShimCD.deviceAckOut_o
+DEBUG : initialized LidLoaderControllerCD.controlIn_in, LidLoaderShimCD.deviceControlOut_o
+DEBUG : initialized LidLoaderShimCD.deviceControlReplyIn_in, LidLoaderControllerCD.controlReplyOut_o
+DEBUG : initialized CapperControllerCD.jobIn_in, CapperShimCD.deviceJobOut_o
+DEBUG : initialized CapperShimCD.deviceReportIn_in, CapperControllerCD.reportOut_o
+DEBUG : initialized CapperControllerCD.ackIn_in, CapperShimCD.deviceAckOut_o
+DEBUG : initialized CapperControllerCD.controlIn_in, CapperShimCD.deviceControlOut_o
+DEBUG : initialized CapperShimCD.deviceControlReplyIn_in, CapperControllerCD.controlReplyOut_o
+DEBUG : initialized LabelerControllerCD.jobIn_in, LabelerShimCD.deviceJobOut_o
+DEBUG : initialized LabelerShimCD.deviceReportIn_in, LabelerControllerCD.reportOut_o
+DEBUG : initialized LabelerControllerCD.ackIn_in, LabelerShimCD.deviceAckOut_o
+DEBUG : initialized LabelerControllerCD.controlIn_in, LabelerShimCD.deviceControlOut_o
+DEBUG : initialized LabelerShimCD.deviceControlReplyIn_in, LabelerControllerCD.controlReplyOut_o
+DEBUG : initialized UnloaderControllerCD.jobIn_in, UnloaderShimCD.deviceJobOut_o
+DEBUG : initialized UnloaderShimCD.deviceReportIn_in, UnloaderControllerCD.reportOut_o
+DEBUG : initialized UnloaderControllerCD.ackIn_in, UnloaderShimCD.deviceAckOut_o
+DEBUG : initialized UnloaderControllerCD.controlIn_in, UnloaderShimCD.deviceControlOut_o
+DEBUG : initialized UnloaderShimCD.deviceControlReplyIn_in, UnloaderControllerCD.controlReplyOut_o
+DEBUG : initialized RotaryTablePlant.rotate_in, RotaryTableController.rotate_o
+DEBUG : initialized RotaryTableController.aligned_in, RotaryTablePlant.aligned_o
+DEBUG : initialized LidLoaderPlantCD.commandIn_in, LidLoaderControllerCD.plantCommandOut_o
+DEBUG : initialized LidLoaderControllerCD.plantEvidenceIn_in, LidLoaderPlantCD.evidenceOut_o
+DEBUG : initialized CapperPlantCD.commandIn_in, CapperControllerCD.plantCommandOut_o
+DEBUG : initialized CapperControllerCD.plantEvidenceIn_in, CapperPlantCD.evidenceOut_o
+DEBUG : initialized LabelerPlantCD.commandIn_in, LabelerControllerCD.plantCommandOut_o
+DEBUG : initialized LabelerControllerCD.plantEvidenceIn_in, LabelerPlantCD.evidenceOut_o
+DEBUG : initialized UnloaderPlantCD.commandIn_in, UnloaderControllerCD.plantCommandOut_o
+DEBUG : initialized UnloaderControllerCD.plantEvidenceIn_in, UnloaderPlantCD.evidenceOut_o
+AVAILABILITY FAST HARNESS: B2 only
+[SafetyMonitor] Commands: 'hazard' (simulate human presence / out-of-range sensor), 'clear' (simulate condition back to normal), 'reset' (operator acknowledgement to resume).
+FLAT SHIM SIMULATION: LID assumes preconditions, grants boot permit, and auto-repairs safe simulated faults; no bottle retry
+FLAT SHIM SIMULATION: CAPPER assumes preconditions, grants boot permit, and auto-repairs safe simulated faults; no bottle retry
+FLAT SHIM SIMULATION: LABELLER assumes preconditions, grants boot permit, and auto-repairs safe simulated faults; no bottle retry
+FLAT SHIM SIMULATION: UNLOADER assumes preconditions, grants boot permit, and auto-repairs safe simulated faults; no bottle retry
+COORDINATOR ACTIVATE B2 quantity=2 doses=35/65
+EXPERIMENT ARMED batch=B2 target=BATCH injectMode=EVENT injectEvent=CONVEYOR_DONE injectOccurrence=1 afterEventMs=0 durationMs=500
+START received for WP-B2-1
+Plant: LOAD received
+Plant: bottle placed
+Plant: RETRACT received
+Plant: arm home
+START received for WP-B2-1
+Plant: MOTOR Run received
+Plant: bottle reached photo eye
+Bottle detected by photo eye
+Plant: bottle left conveyor
+Plant: MOTOR OFF received
+EXPERIMENT EVENT name=CONVEYOR_DONE occurrence=1 missionElapsedMs=2062.0818
+EXPERIMENT HALT_START target=BATCH mode=EVENT event=CONVEYOR_DONE occurrence=1 missionElapsedMs=2062.0818 afterMatchedEventMs=0.0 haltStartLocalTick=1370 requestedDurationMs=500
+TRACE WAIT_ALIGNMENT_ENTER rotation=1 ns=456344663784800 deadlineNs=456359663784800
+TRACE ROTATE_TRIGGER_EMITTED rotation=1 ns=456344663975400
+TRACE ROTARY_CONTROLLER_RECEIVED rotation=1 ns=456344667905500
+TRACE ROTARY_PLANT_RECEIVED rotation=1 value=true ns=456344668143300
+TRACE ROTATE_COMMAND_SENT rotation=1 ns=456344668890900
+EXPERIMENT HALT_END target=BATCH actualDownMs=500.3763 haltEndLocalTick=1710 localTicksDuringHalt=339
+TRACE ROTARY_PLANT_ROTATION_COMPLETE rotation=1 ns=456345168339500
+TRACE CONTROLLER_ALIGNED_RECEIVED rotation=1 value=true ns=456345169326700
+TRACE TABLE_ALIGNED_EMITTED rotation=1 ns=456345169494800
+TRACE ROTARY_PLANT_ALIGNED_SENT rotation=1 ns=456345170019200
+TRACE TABLE_ALIGNED_OBSERVED rotation=1 ns=456345174257200
+TRACE MODEL_ALIGNED_COMMITTED rotation=1 ns=456345174530500
+TRACE MODEL_ALIGNED_RETURNED rotation=1 fault= ns=456345174633300
+START received for WP-B2-2
+START received for WP-B2-1
+Plant: LOAD received
+Plant: liquid 1 filled
+Plant: bottle placed
+Plant: RETRACT received
+Plant: liquid 2 filled
+Plant: arm home
+START received for WP-B2-2
+Plant: MOTOR Run received
+Plant: bottle reached photo eye
+Bottle detected by photo eye
+Plant: bottle left conveyor
+Plant: MOTOR OFF received
+EXPERIMENT EVENT name=CONVEYOR_DONE occurrence=2 missionElapsedMs=4627.3165
+TRACE WAIT_ALIGNMENT_ENTER rotation=2 ns=456347227927600 deadlineNs=456362227927600
+TRACE ROTATE_TRIGGER_EMITTED rotation=2 ns=456347228186200
+TRACE ROTARY_CONTROLLER_RECEIVED rotation=2 ns=456347232558200
+TRACE ROTARY_PLANT_RECEIVED rotation=2 value=true ns=456347232637600
+TRACE ROTATE_COMMAND_SENT rotation=2 ns=456347233514900
+TRACE ROTARY_PLANT_ROTATION_COMPLETE rotation=2 ns=456347732201100
+TRACE CONTROLLER_ALIGNED_RECEIVED rotation=2 value=true ns=456347733081600
+TRACE TABLE_ALIGNED_EMITTED rotation=2 ns=456347733137200
+TRACE ROTARY_PLANT_ALIGNED_SENT rotation=2 ns=456347733393100
+TRACE TABLE_ALIGNED_OBSERVED rotation=2 ns=456347737101000
+TRACE MODEL_ALIGNED_COMMITTED rotation=2 ns=456347737362600
+TRACE MODEL_ALIGNED_RETURNED rotation=2 fault= ns=456347737378500
+START received for WP-B2-2
+Plant: liquid 1 filled
+Plant: liquid 2 filled
+TRACE WAIT_ALIGNMENT_ENTER rotation=3 ns=456348771877600 deadlineNs=456363771877600
+TRACE ROTATE_TRIGGER_EMITTED rotation=3 ns=456348772298800
+TRACE ROTARY_CONTROLLER_RECEIVED rotation=3 ns=456348776820400
+TRACE ROTARY_PLANT_RECEIVED rotation=3 value=true ns=456348776939100
+TRACE ROTATE_COMMAND_SENT rotation=3 ns=456348777799300
+TRACE ROTARY_PLANT_ROTATION_COMPLETE rotation=3 ns=456349278681900
+TRACE CONTROLLER_ALIGNED_RECEIVED rotation=3 value=true ns=456349280663200
+TRACE TABLE_ALIGNED_EMITTED rotation=3 ns=456349280710600
+TRACE ROTARY_PLANT_ALIGNED_SENT rotation=3 ns=456349281030800
+TRACE TABLE_ALIGNED_OBSERVED rotation=3 ns=456349285668400
+TRACE MODEL_ALIGNED_COMMITTED rotation=3 ns=456349285846900
+TRACE MODEL_ALIGNED_RETURNED rotation=3 fault= ns=456349285888800
+TRACE WAIT_ALIGNMENT_ENTER rotation=4 ns=456349378862300 deadlineNs=456364378862300
+TRACE ROTATE_TRIGGER_EMITTED rotation=4 ns=456349379033700
+TRACE ROTARY_CONTROLLER_RECEIVED rotation=4 ns=456349383902600
+TRACE ROTARY_PLANT_RECEIVED rotation=4 value=true ns=456349383961100
+TRACE ROTATE_COMMAND_SENT rotation=4 ns=456349384942900
+TRACE ROTARY_PLANT_ROTATION_COMPLETE rotation=4 ns=456349883898500
+TRACE CONTROLLER_ALIGNED_RECEIVED rotation=4 value=true ns=456349884923900
+TRACE TABLE_ALIGNED_EMITTED rotation=4 ns=456349885005400
+TRACE ROTARY_PLANT_ALIGNED_SENT rotation=4 ns=456349885321700
+TRACE TABLE_ALIGNED_OBSERVED rotation=4 ns=456349889873600
+TRACE MODEL_ALIGNED_COMMITTED rotation=4 ns=456349890089700
+TRACE MODEL_ALIGNED_RETURNED rotation=4 fault= ns=456349890126900
+START received for WP-B2-1
+Plant: MOTOR Run received
+Plant: bottle reached photo eye
+Bottle detected by photo eye
+Plant: bottle left conveyor
+Plant: MOTOR OFF received
+EXPERIMENT EVENT name=CONVEYOR_DONE occurrence=3 missionElapsedMs=8399.7821
+TRACE WAIT_ALIGNMENT_ENTER rotation=5 ns=456351002134000 deadlineNs=456366002134000
+TRACE ROTATE_TRIGGER_EMITTED rotation=5 ns=456351002319600
+TRACE ROTARY_CONTROLLER_RECEIVED rotation=5 ns=456351007251600
+TRACE ROTARY_PLANT_RECEIVED rotation=5 value=true ns=456351007361700
+TRACE ROTATE_COMMAND_SENT rotation=5 ns=456351009168900
+TRACE ROTARY_PLANT_ROTATION_COMPLETE rotation=5 ns=456351507912300
+TRACE CONTROLLER_ALIGNED_RECEIVED rotation=5 value=true ns=456351509909400
+TRACE TABLE_ALIGNED_EMITTED rotation=5 ns=456351510002700
+TRACE ROTARY_PLANT_ALIGNED_SENT rotation=5 ns=456351510337100
+TRACE TABLE_ALIGNED_OBSERVED rotation=5 ns=456351513825700
+TRACE MODEL_ALIGNED_COMMITTED rotation=5 ns=456351513954100
+TRACE MODEL_ALIGNED_RETURNED rotation=5 fault= ns=456351514006700
+START received for WP-B2-2
+Plant: MOTOR Run received
+Plant: bottle reached photo eye
+Bottle detected by photo eye
+Plant: bottle left conveyor
+Plant: MOTOR OFF received
+EXPERIMENT EVENT name=CONVEYOR_DONE occurrence=4 missionElapsedMs=10011.2587
+COORDINATOR COMPLETED WP-B2-1 1/2
+COORDINATOR COMPLETED WP-B2-2 2/2
+COORDINATOR DRAINED B2 rotations=5
+COORDINATOR DRAINED B2
+EXPERIMENT_RESULT batch=B2 terminalStatus=DRAINED faultReason=NONE target=BATCH injectMode=EVENT injectEvent=CONVEYOR_DONE injectOccurrence=1 afterEventMs=0 eventMatched=true matchedEventOccurrence=1 eventMatchMissionMs=2062.0818 requestedDurationMs=500 haltTriggered=true haltRecovered=true haltStartAfterEventMs=0.0 haltStartLocalTick=1370 haltEndLocalTick=1710 localTicksDuringHalt=339 actualDownMs=500.3763 missionMs=10191.8949 coordinatorElapsedTicks=0 batchElapsedTicks=6791 productionElapsedTicks=6791 safetyElapsedTicks=6791
+AVAILABILITY FAST HARNESS PASSED: 2 bottles, recipe 35/65

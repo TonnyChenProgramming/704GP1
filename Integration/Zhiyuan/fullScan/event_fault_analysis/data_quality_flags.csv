@@ -1,0 +1,58 @@
+severity,scope,key,value,threshold,message
+WARN,BASELINE,CENTRALISED,1,0,No-fault baseline contained one or more terminal FAULT outcomes.
+WARN,BASELINE,CENTRALISED,1872.741687385471,500.0,Successful baseline mission time is highly variable/non-stationary; avoid relying on one global baseline median for causal latency attribution.
+WARN,EVENT_POINT,COORDINATOR:TABLE_ALIGNED#1,0.8,0.9,Event reachability below 90%; many runs terminated before the intended injection point.
+WARN,EVENT_POINT,COORDINATOR:TABLE_ALIGNED#1,0.2,0.1,At least 10% of attempts failed before reaching the injection event; interpret injected-fault probability with censoring/background-failure caution.
+WARN,EVENT_POINT,COORDINATOR:FILLER_DONE#1,0.8,0.9,Event reachability below 90%; many runs terminated before the intended injection point.
+WARN,EVENT_POINT,COORDINATOR:FILLER_DONE#1,0.2,0.1,At least 10% of attempts failed before reaching the injection event; interpret injected-fault probability with censoring/background-failure caution.
+WARN,EVENT_POINT,PRODUCTION:FILLER_DONE#1,0.75,0.9,Event reachability below 90%; many runs terminated before the intended injection point.
+WARN,EVENT_POINT,PRODUCTION:FILLER_DONE#1,0.25,0.1,At least 10% of attempts failed before reaching the injection event; interpret injected-fault probability with censoring/background-failure caution.
+WARN,EVENT_POINT,SAFETY:FILLER_DONE#1,0.1,0.1,At least 10% of attempts failed before reaching the injection event; interpret injected-fault probability with censoring/background-failure caution.
+WARN,EVENT_POINT,COORDINATOR:LID_DONE#1,0.8,0.9,Event reachability below 90%; many runs terminated before the intended injection point.
+WARN,EVENT_POINT,COORDINATOR:LID_DONE#1,0.2,0.1,At least 10% of attempts failed before reaching the injection event; interpret injected-fault probability with censoring/background-failure caution.
+WARN,EVENT_POINT,BATCH:LID_DONE#1,0.1,0.1,At least 10% of attempts failed before reaching the injection event; interpret injected-fault probability with censoring/background-failure caution.
+WARN,EVENT_POINT,PRODUCTION:LID_DONE#1,0.8,0.9,Event reachability below 90%; many runs terminated before the intended injection point.
+WARN,EVENT_POINT,PRODUCTION:LID_DONE#1,0.2,0.1,At least 10% of attempts failed before reaching the injection event; interpret injected-fault probability with censoring/background-failure caution.
+WARN,EVENT_POINT,COORDINATOR:CAPPER_DONE#1,0.85,0.9,Event reachability below 90%; many runs terminated before the intended injection point.
+WARN,EVENT_POINT,COORDINATOR:CAPPER_DONE#1,0.15,0.1,At least 10% of attempts failed before reaching the injection event; interpret injected-fault probability with censoring/background-failure caution.
+WARN,EVENT_POINT,BATCH:CAPPER_DONE#1,0.1,0.1,At least 10% of attempts failed before reaching the injection event; interpret injected-fault probability with censoring/background-failure caution.
+WARN,EVENT_POINT,PRODUCTION:CAPPER_DONE#1,0.1,0.1,At least 10% of attempts failed before reaching the injection event; interpret injected-fault probability with censoring/background-failure caution.
+WARN,EVENT_POINT,SAFETY:CAPPER_DONE#1,0.85,0.9,Event reachability below 90%; many runs terminated before the intended injection point.
+WARN,EVENT_POINT,SAFETY:CAPPER_DONE#1,0.15,0.1,At least 10% of attempts failed before reaching the injection event; interpret injected-fault probability with censoring/background-failure caution.
+WARN,EVENT_POINT,COORDINATOR:LABELLER_DONE#1,0.85,0.9,Event reachability below 90%; many runs terminated before the intended injection point.
+WARN,EVENT_POINT,COORDINATOR:LABELLER_DONE#1,0.15,0.1,At least 10% of attempts failed before reaching the injection event; interpret injected-fault probability with censoring/background-failure caution.
+WARN,EVENT_POINT,BATCH:LABELLER_DONE#1,0.75,0.9,Event reachability below 90%; many runs terminated before the intended injection point.
+WARN,EVENT_POINT,BATCH:LABELLER_DONE#1,0.25,0.1,At least 10% of attempts failed before reaching the injection event; interpret injected-fault probability with censoring/background-failure caution.
+WARN,EVENT_POINT,SAFETY:LABELLER_DONE#1,0.85,0.9,Event reachability below 90%; many runs terminated before the intended injection point.
+WARN,EVENT_POINT,SAFETY:LABELLER_DONE#1,0.15,0.1,At least 10% of attempts failed before reaching the injection event; interpret injected-fault probability with censoring/background-failure caution.
+WARN,EVENT_POINT,COORDINATOR:UNLOADER_DONE#1,0.8,0.9,Event reachability below 90%; many runs terminated before the intended injection point.
+WARN,EVENT_POINT,COORDINATOR:UNLOADER_DONE#1,0.2,0.1,At least 10% of attempts failed before reaching the injection event; interpret injected-fault probability with censoring/background-failure caution.
+WARN,EVENT_POINT,BATCH:UNLOADER_DONE#1,0.85,0.9,Event reachability below 90%; many runs terminated before the intended injection point.
+WARN,EVENT_POINT,BATCH:UNLOADER_DONE#1,0.15,0.1,At least 10% of attempts failed before reaching the injection event; interpret injected-fault probability with censoring/background-failure caution.
+WARN,EVENT_POINT,PRODUCTION:UNLOADER_DONE#1,0.85,0.9,Event reachability below 90%; many runs terminated before the intended injection point.
+WARN,EVENT_POINT,PRODUCTION:UNLOADER_DONE#1,0.15,0.1,At least 10% of attempts failed before reaching the injection event; interpret injected-fault probability with censoring/background-failure caution.
+WARN,EVENT_POINT,SAFETY:UNLOADER_DONE#1,0.75,0.9,Event reachability below 90%; many runs terminated before the intended injection point.
+WARN,EVENT_POINT,SAFETY:UNLOADER_DONE#1,0.25,0.1,At least 10% of attempts failed before reaching the injection event; interpret injected-fault probability with censoring/background-failure caution.
+WARN,EVENT_POINT,SAFETY:UNLOADER_DONE#1,408.26187999999996,20.0,95th percentile absolute HALT-duration error exceeds 20 ms.
+WARN,EVENT_POINT,COORDINATOR:LOADER_DONE#2,0.85,0.9,Event reachability below 90%; many runs terminated before the intended injection point.
+WARN,EVENT_POINT,COORDINATOR:LOADER_DONE#2,0.15,0.1,At least 10% of attempts failed before reaching the injection event; interpret injected-fault probability with censoring/background-failure caution.
+WARN,EVENT_POINT,BATCH:LOADER_DONE#2,0.1,0.1,At least 10% of attempts failed before reaching the injection event; interpret injected-fault probability with censoring/background-failure caution.
+WARN,EVENT_POINT,PRODUCTION:LOADER_DONE#2,0.85,0.9,Event reachability below 90%; many runs terminated before the intended injection point.
+WARN,EVENT_POINT,PRODUCTION:LOADER_DONE#2,0.15,0.1,At least 10% of attempts failed before reaching the injection event; interpret injected-fault probability with censoring/background-failure caution.
+WARN,EVENT_POINT,SAFETY:LOADER_DONE#2,0.8,0.9,Event reachability below 90%; many runs terminated before the intended injection point.
+WARN,EVENT_POINT,SAFETY:LOADER_DONE#2,0.2,0.1,At least 10% of attempts failed before reaching the injection event; interpret injected-fault probability with censoring/background-failure caution.
+WARN,EVENT_POINT,SAFETY:CONVEYOR_DONE#2,0.1,0.1,At least 10% of attempts failed before reaching the injection event; interpret injected-fault probability with censoring/background-failure caution.
+WARN,EVENT_POINT,BATCH:FILLER_DONE#2,0.1,0.1,At least 10% of attempts failed before reaching the injection event; interpret injected-fault probability with censoring/background-failure caution.
+WARN,EVENT_POINT,PRODUCTION:FILLER_DONE#2,0.85,0.9,Event reachability below 90%; many runs terminated before the intended injection point.
+WARN,EVENT_POINT,PRODUCTION:FILLER_DONE#2,0.15,0.1,At least 10% of attempts failed before reaching the injection event; interpret injected-fault probability with censoring/background-failure caution.
+WARN,EVENT_POINT,BATCH:TABLE_ALIGNED#3,0.1,0.1,At least 10% of attempts failed before reaching the injection event; interpret injected-fault probability with censoring/background-failure caution.
+WARN,EVENT_POINT,SAFETY:TABLE_ALIGNED#3,0.1,0.1,At least 10% of attempts failed before reaching the injection event; interpret injected-fault probability with censoring/background-failure caution.
+WARN,EVENT_POINT,COORDINATOR:TABLE_ALIGNED#5,0.75,0.9,Event reachability below 90%; many runs terminated before the intended injection point.
+WARN,EVENT_POINT,COORDINATOR:TABLE_ALIGNED#5,0.25,0.1,At least 10% of attempts failed before reaching the injection event; interpret injected-fault probability with censoring/background-failure caution.
+WARN,EVENT_POINT,BATCH:TABLE_ALIGNED#5,0.8,0.9,Event reachability below 90%; many runs terminated before the intended injection point.
+WARN,EVENT_POINT,BATCH:TABLE_ALIGNED#5,0.2,0.1,At least 10% of attempts failed before reaching the injection event; interpret injected-fault probability with censoring/background-failure caution.
+WARN,EVENT_POINT,PRODUCTION:TABLE_ALIGNED#5,0.75,0.9,Event reachability below 90%; many runs terminated before the intended injection point.
+WARN,EVENT_POINT,PRODUCTION:TABLE_ALIGNED#5,0.25,0.1,At least 10% of attempts failed before reaching the injection event; interpret injected-fault probability with censoring/background-failure caution.
+WARN,EVENT_POINT,SAFETY:TABLE_ALIGNED#5,0.85,0.9,Event reachability below 90%; many runs terminated before the intended injection point.
+WARN,EVENT_POINT,SAFETY:TABLE_ALIGNED#5,0.15,0.1,At least 10% of attempts failed before reaching the injection event; interpret injected-fault probability with censoring/background-failure caution.
+WARN,TARGET,COORDINATOR,0.11428571428571428,0.1,High pooled pre-event/background failure burden across attempts.

@@ -1,0 +1,37 @@
+// Interactive stand-in for the human-presence / environmental sensor inputs described in
+// the project brief (4.1.2), until the operator GUI wires ACKNOWLEDGE_HAZARD/SAFE_RESET
+// directly. Same "one shared Java object behind a signal, flat parallel reactions" shape
+// as CoordinatorCD/BatchManagerCD -- see coordinator.sysj.
+import nz.ac.auckland.eabs.zhiyuan.coordinator.SafetyMonitorModel;
+SafetyMonitorCD(
+    output signal safetyPermitLost;
+    output signal safetyPermitRestored;
+    output signal safetyResetRequested;
+)->{
+    SafetyMonitorModel signal stateModel;
+    emit stateModel(new SafetyMonitorModel());
+    pause;
+    {
+        SafetyMonitorModel model = (SafetyMonitorModel)#stateModel;
+        while(true){
+            if(model.hazardRequested()){ emit safetyPermitLost; }
+            pause;
+        }
+    }
+    ||
+    {
+        SafetyMonitorModel model = (SafetyMonitorModel)#stateModel;
+        while(true){
+            if(model.restoredRequested()){ emit safetyPermitRestored; }
+            pause;
+        }
+    }
+    ||
+    {
+        SafetyMonitorModel model = (SafetyMonitorModel)#stateModel;
+        while(true){
+            if(model.resetRequested()){ emit safetyResetRequested; }
+            pause;
+        }
+    }
+}

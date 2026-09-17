@@ -1,0 +1,2 @@
+architecture,xml,successful_baselines_required,baseline_attempts,baseline_failures,baseline_success_rate,median_ms,mean_ms,stdev_ms,mad_ms,noise_band_ms,successful_mission_times_ms
+CENTRALISED,sysj/03_Hardened_1CD/HardenedCoordinatorCD.xml,10,10,0,1.0,13597.81925,13126.61059,1185.564944132518,409.1452999999992,2371.129888265036,10166.471100;13579.033100;14013.797100;13930.191100;13616.605400;13913.867800;12650.748100;12569.718900;12825.541300;14000.132000

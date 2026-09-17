@@ -1,0 +1,412 @@
+// EVENT-ALIGNED availability experiment wrapper for the frozen centralised CoordinatorCD.
+// No-fault functional behaviour is intended to remain identical to coordinator.sysj.
+// The GlobalExperiment control plane is test-only and must not be presented as production logic.
+
+import nz.ac.auckland.eabs.zhiyuan.coordinator.IntegratedCoordinator;
+import nz.ac.auckland.eabs.zhiyuan.coordinator.GlobalExperiment;
+
+HardenedcoordinatorCD(
+
+    input String channel activateBatchIn;
+    output String channel batchDrainedOut;
+    output String channel loaderJobOut;
+    input String channel loaderReportIn;
+    output String channel loaderAckOut;
+    output String channel conveyorJobOut;
+    input String channel conveyorReportIn;
+    output String channel conveyorAckOut;
+    output String channel fillerJobOut;
+    input String channel fillerReportIn;
+    output String channel fillerAckOut;
+    output String channel lidJobOut;
+    input String channel lidReportIn;
+    output String channel lidAckOut;
+    output String channel capperJobOut;
+    input String channel capperReportIn;
+    output String channel capperAckOut;
+    output String channel labellerJobOut;
+    input String channel labellerReportIn;
+    output String channel labellerAckOut;
+    output String channel unloaderJobOut;
+    input String channel unloaderReportIn;
+    output String channel unloaderAckOut;
+    // Reliable Coordinator -> RotaryController request rendezvous.
+    output String channel rotationRequestOut;
+    // Reliable RotaryController -> Coordinator completion rendezvous.
+    input String channel rotationDoneIn;
+
+    input signal safetyPermitLost;
+    input signal safetyPermitRestored;
+    input signal safetyResetRequested;
+
+)->{
+
+    IntegratedCoordinator signal stateModel;
+
+    emit stateModel(new IntegratedCoordinator());
+
+    pause;
+
+    // Out-of-band experiment control. Never halted.
+    {
+        while(true){
+            GlobalExperiment.clockTick("COORDINATOR");
+            pause;
+        }
+    }
+
+    ||
+
+    {
+        IntegratedCoordinator model = (IntegratedCoordinator)#stateModel;
+
+        while(true){
+            if(GlobalExperiment.shouldRun("COORDINATOR")){
+                model.tick();
+            }
+            pause;
+        }
+    }
+
+    ||
+
+    {
+        IntegratedCoordinator model = (IntegratedCoordinator)#stateModel;
+        String batchFrame = "";
+
+        while(true){
+            if(GlobalExperiment.shouldRun("COORDINATOR")){
+                if(model.awaitingOrder()){
+                    receive activateBatchIn; batchFrame = (String)#activateBatchIn;
+                    model.activate(batchFrame);
+
+                    // arm only after the model has accepted the valid batch
+                    if(model.phase().equals("DISPATCH")){
+                        GlobalExperiment.arm(batchFrame);
+                        GlobalExperiment.markEvent("BATCH_ACCEPTED");
+                    }
+                }
+            }
+            pause;
+        }
+    }
+
+    ||
+
+    {
+        IntegratedCoordinator model = (IntegratedCoordinator)#stateModel;
+        String result = "";
+
+        while(true){
+            if(GlobalExperiment.shouldRun("COORDINATOR")){
+                result = model.response();
+
+                if(!result.equals("")){
+                    GlobalExperiment.recordBatchResult(result);
+                    send batchDrainedOut(result);
+                    model.responseSent();
+                    GlobalExperiment.exitIfRequested();
+                }
+            }
+            pause;
+        }
+    }
+
+    ||
+
+    {
+        IntegratedCoordinator model = (IntegratedCoordinator)#stateModel;
+
+        int rotationTraceId = 0;
+        String request = "";
+        String done = "";
+
+        while(true){
+            if(GlobalExperiment.shouldRun("COORDINATOR")){
+                if(model.requestRotation()){
+
+                    rotationTraceId++;
+                    request = "ROTATE|" + rotationTraceId;
+
+                    System.out.println(
+                        "TRACE CENTRAL_ROTATION_REQUEST_READY" +
+                        " rotation=" + rotationTraceId +
+                        " request=" + request +
+                        " ns=" + System.nanoTime()
+                    );
+
+                    send rotationRequestOut(request);
+
+                    System.out.println(
+                        "TRACE CENTRAL_ROTATION_REQUEST_RENDEZVOUS_COMPLETE" +
+                        " rotation=" + rotationTraceId +
+                        " ns=" + System.nanoTime()
+                    );
+
+                    receive rotationDoneIn;
+                    done = (String)#rotationDoneIn;
+
+                    System.out.println(
+                        "TRACE CENTRAL_ROTATION_DONE_RECEIVED" +
+                        " rotation=" + rotationTraceId +
+                        " message=" + done +
+                        " ns=" + System.nanoTime()
+                    );
+
+                    if(done.equals("DONE|" + rotationTraceId)){
+                        model.aligned();
+
+                        System.out.println(
+                            "TRACE CENTRAL_MODEL_ALIGNED_RETURNED" +
+                            " rotation=" + rotationTraceId +
+                            " ns=" + System.nanoTime()
+                        );
+
+                        GlobalExperiment.markEvent("TABLE_ALIGNED");
+                    }else{
+                        System.err.println(
+                            "TRACE CENTRAL_ROTATION_DONE_MISMATCH" +
+                            " expected=DONE|" + rotationTraceId +
+                            " actual=" + done +
+                            " ns=" + System.nanoTime()
+                        );
+                    }
+                }
+            }
+            pause;
+        }
+    }
+
+    ||
+
+    {
+        IntegratedCoordinator model = (IntegratedCoordinator)#stateModel;
+
+        while(true){
+            if(GlobalExperiment.shouldRun("COORDINATOR")){
+                await(safetyPermitLost);
+                model.hazard();
+            }
+            pause;
+        }
+    }
+
+    ||
+
+    {
+        IntegratedCoordinator model = (IntegratedCoordinator)#stateModel;
+
+        while(true){
+            if(GlobalExperiment.shouldRun("COORDINATOR")){
+                await(safetyPermitRestored);
+                model.permitRestored();
+            }
+            pause;
+        }
+    }
+
+    ||
+
+    {
+        IntegratedCoordinator model = (IntegratedCoordinator)#stateModel;
+
+        while(true){
+            if(GlobalExperiment.shouldRun("COORDINATOR")){
+                await(safetyResetRequested);
+                model.reset();
+            }
+            pause;
+        }
+    }
+
+    ||
+    {
+        IntegratedCoordinator model = (IntegratedCoordinator)#stateModel;
+        String command = ""; String report = ""; String ack = "";
+        int stage = 0;
+
+        while(true){
+            if(GlobalExperiment.shouldRun("COORDINATOR")){
+                if(stage == 0){
+                    receive loaderReportIn; report = (String)#loaderReportIn;
+                    model.ready("LOADER", report); stage = 1;
+                }else if(stage == 1){
+                    command = model.take("LOADER");
+                    if(!command.equals("")){ send loaderJobOut(command); stage = 2; }
+                }else if(stage == 2){
+                    receive loaderReportIn; report = (String)#loaderReportIn;
+                    ack = model.report("LOADER", report);
+                    if(!ack.equals("")){
+                        send loaderAckOut(ack);
+                        GlobalExperiment.markEvent("LOADER_DONE");
+                        stage = 0;
+                    }
+                }
+            }
+            pause;
+        }
+    }
+    ||
+    {
+        IntegratedCoordinator model = (IntegratedCoordinator)#stateModel;
+        String command = ""; String report = ""; String ack = "";
+        int stage = 0;
+
+        while(true){
+            if(GlobalExperiment.shouldRun("COORDINATOR")){
+                if(stage == 0){
+                    receive conveyorReportIn; report = (String)#conveyorReportIn;
+                    model.ready("CONVEYOR", report); stage = 1;
+                }else if(stage == 1){
+                    command = model.take("CONVEYOR");
+                    if(!command.equals("")){ send conveyorJobOut(command); stage = 2; }
+                }else if(stage == 2){
+                    receive conveyorReportIn; report = (String)#conveyorReportIn;
+                    ack = model.report("CONVEYOR", report);
+                    if(!ack.equals("")){
+                        send conveyorAckOut(ack);
+                        GlobalExperiment.markEvent("CONVEYOR_DONE");
+                        stage = 0;
+                    }
+                }
+            }
+            pause;
+        }
+    }
+    ||
+    {
+        IntegratedCoordinator model = (IntegratedCoordinator)#stateModel;
+        String command = ""; String report = ""; String ack = "";
+        int stage = 0;
+
+        while(true){
+            if(GlobalExperiment.shouldRun("COORDINATOR")){
+                if(stage == 0){
+                    receive fillerReportIn; report = (String)#fillerReportIn;
+                    model.ready("FILLER", report); stage = 1;
+                }else if(stage == 1){
+                    command = model.take("FILLER");
+                    if(!command.equals("")){ send fillerJobOut(command); stage = 2; }
+                }else if(stage == 2){
+                    receive fillerReportIn; report = (String)#fillerReportIn;
+                    ack = model.report("FILLER", report);
+                    if(!ack.equals("")){
+                        send fillerAckOut(ack);
+                        GlobalExperiment.markEvent("FILLER_DONE");
+                        stage = 0;
+                    }
+                }
+            }
+            pause;
+        }
+    }
+    ||
+    {
+        IntegratedCoordinator model = (IntegratedCoordinator)#stateModel;
+        String command = ""; String report = ""; String ack = "";
+        int stage = 0;
+
+        while(true){
+            if(GlobalExperiment.shouldRun("COORDINATOR")){
+                if(stage == 0){
+                    receive lidReportIn; report = (String)#lidReportIn;
+                    model.ready("LID", report); stage = 1;
+                }else if(stage == 1){
+                    command = model.take("LID");
+                    if(!command.equals("")){ send lidJobOut(command); stage = 2; }
+                }else if(stage == 2){
+                    receive lidReportIn; report = (String)#lidReportIn;
+                    ack = model.report("LID", report);
+                    if(!ack.equals("")){
+                        send lidAckOut(ack);
+                        GlobalExperiment.markEvent("LID_DONE");
+                        stage = 0;
+                    }
+                }
+            }
+            pause;
+        }
+    }
+    ||
+    {
+        IntegratedCoordinator model = (IntegratedCoordinator)#stateModel;
+        String command = ""; String report = ""; String ack = "";
+        int stage = 0;
+
+        while(true){
+            if(GlobalExperiment.shouldRun("COORDINATOR")){
+                if(stage == 0){
+                    receive capperReportIn; report = (String)#capperReportIn;
+                    model.ready("CAPPER", report); stage = 1;
+                }else if(stage == 1){
+                    command = model.take("CAPPER");
+                    if(!command.equals("")){ send capperJobOut(command); stage = 2; }
+                }else if(stage == 2){
+                    receive capperReportIn; report = (String)#capperReportIn;
+                    ack = model.report("CAPPER", report);
+                    if(!ack.equals("")){
+                        send capperAckOut(ack);
+                        GlobalExperiment.markEvent("CAPPER_DONE");
+                        stage = 0;
+                    }
+                }
+            }
+            pause;
+        }
+    }
+    ||
+    {
+        IntegratedCoordinator model = (IntegratedCoordinator)#stateModel;
+        String command = ""; String report = ""; String ack = "";
+        int stage = 0;
+
+        while(true){
+            if(GlobalExperiment.shouldRun("COORDINATOR")){
+                if(stage == 0){
+                    receive labellerReportIn; report = (String)#labellerReportIn;
+                    model.ready("LABELLER", report); stage = 1;
+                }else if(stage == 1){
+                    command = model.take("LABELLER");
+                    if(!command.equals("")){ send labellerJobOut(command); stage = 2; }
+                }else if(stage == 2){
+                    receive labellerReportIn; report = (String)#labellerReportIn;
+                    ack = model.report("LABELLER", report);
+                    if(!ack.equals("")){
+                        send labellerAckOut(ack);
+                        GlobalExperiment.markEvent("LABELLER_DONE");
+                        stage = 0;
+                    }
+                }
+            }
+            pause;
+        }
+    }
+    ||
+    {
+        IntegratedCoordinator model = (IntegratedCoordinator)#stateModel;
+        String command = ""; String report = ""; String ack = "";
+        int stage = 0;
+
+        while(true){
+            if(GlobalExperiment.shouldRun("COORDINATOR")){
+                if(stage == 0){
+                    receive unloaderReportIn; report = (String)#unloaderReportIn;
+                    model.ready("UNLOADER", report); stage = 1;
+                }else if(stage == 1){
+                    command = model.take("UNLOADER");
+                    if(!command.equals("")){ send unloaderJobOut(command); stage = 2; }
+                }else if(stage == 2){
+                    receive unloaderReportIn; report = (String)#unloaderReportIn;
+                    ack = model.report("UNLOADER", report);
+                    if(!ack.equals("")){
+                        send unloaderAckOut(ack);
+                        GlobalExperiment.markEvent("UNLOADER_DONE");
+                        stage = 0;
+                    }
+                }
+            }
+            pause;
+        }
+    }
+
+}

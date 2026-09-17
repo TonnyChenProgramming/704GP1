@@ -1,0 +1,2 @@
+architecture,xml,successful_baselines_required,baseline_attempts,baseline_failures,baseline_success_rate,median_ms,mean_ms,stdev_ms,mad_ms,noise_band_ms,successful_mission_times_ms
+DECOMPOSED_3CD,sysj/IntegratedCoordinatorAcceptance_3CD.xml,3,7,4,0.42857142857142855,10214.6569,11413.457266666666,2111.893887116349,40.88999999999942,4223.787774232698,13851.948000;10214.656900;10173.766900

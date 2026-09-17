@@ -1,0 +1,4 @@
+variant=hardened
+folder=03_Hardened_1CD
+xml=C:\Users\cta10\OneDrive\Desktop\part4\704\704GP1\Integration\Zhiyuan\sysj\03_Hardened_1CD\coordinator.xml
+classes=C:\Users\cta10\OneDrive\Desktop\part4\704\704GP1\Integration\Zhiyuan\build\eclipse-build-hardened-12822307702482407860\classes

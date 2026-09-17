@@ -1,0 +1,15 @@
+event,occurrence,event_label,COORDINATOR,BATCH,PRODUCTION,SAFETY
+BATCH_ACCEPTED,1,after_valid_B2_acceptance,1.0,0.95,0.75,0.95
+LOADER_DONE,1,after_first_bottle_admitted,0.95,0.95,0.7,0.8
+CONVEYOR_DONE,1,after_first_bottle_transfer_to_rotary,0.85,0.85,0.65,0.85
+TABLE_ALIGNED,1,after_first_confirmed_rotation,1.0,0.8947368421052632,1.0,1.0
+FILLER_DONE,1,after_first_bottle_fill,0.75,0.9473684210526315,0.9333333333333333,0.9444444444444444
+LID_DONE,1,after_first_bottle_lid,0.75,0.8333333333333334,0.9375,0.8947368421052632
+CAPPER_DONE,1,after_first_bottle_cap,1.0,0.9444444444444444,0.9444444444444444,1.0
+LABELLER_DONE,1,after_first_bottle_label,1.0,1.0,1.0,1.0
+UNLOADER_DONE,1,after_first_bottle_completion,1.0,1.0,1.0,1.0
+LOADER_DONE,2,after_second_bottle_admitted,1.0,0.8333333333333334,0.9411764705882353,1.0
+CONVEYOR_DONE,2,after_second_bottle_transfer_to_rotary,0.8947368421052632,1.0,0.85,0.9444444444444444
+FILLER_DONE,2,after_second_bottle_fill,0.9473684210526315,1.0,0.9411764705882353,0.9473684210526315
+TABLE_ALIGNED,3,after_third_confirmed_rotation,1.0,1.0,0.8,0.9444444444444444
+TABLE_ALIGNED,5,after_fifth_confirmed_rotation,1.0,1.0,1.0,1.0

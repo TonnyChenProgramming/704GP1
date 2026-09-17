@@ -1,0 +1,134 @@
+// Reliable rotary-handshake experiment.
+// File name intentionally remains "RoteryTableController.sysj" because the
+// existing BuildAll tool compiles that historical filename.
+// The generated Clock Domain class is still RotaryTableController.
+
+HardenedRotaryTableController(
+
+    // ProductionCoordinator -> controller reliable request rendezvous.
+    input String channel rotationRequestIn;
+
+    // Controller -> ProductionCoordinator reliable completion rendezvous.
+    output String channel rotationDoneOut;
+
+    // Controller -> plant.
+    output Boolean channel rotate;
+
+    // Plant -> controller.
+    input Boolean channel aligned;
+
+)->{
+
+    String request = "";
+    String done = "";
+    int requestedId = 0;
+
+    // Highest transaction ID whose physical rotation completed successfully.
+    // This provides duplicate suppression if the same request is ever retried.
+    int lastCompletedId = 0;
+
+    while(true){
+
+        receive rotationRequestIn;
+        request = (String)#rotationRequestIn;
+
+        System.out.println(
+            "TRACE ROTATION_REQUEST_RECEIVED" +
+            " request=" + request +
+            " lastCompletedId=" + lastCompletedId +
+            " ns=" + System.nanoTime()
+        );
+
+        if(request.startsWith("ROTATE|")){
+
+            requestedId = Integer.parseInt(request.substring(7));
+
+            if(requestedId <= lastCompletedId){
+
+                // Idempotent duplicate handling:
+                // a completed transaction is acknowledged again but the
+                // physical table is NOT rotated a second time.
+                done = "DONE|" + requestedId;
+
+                System.out.println(
+                    "TRACE ROTATION_DUPLICATE_SUPPRESSED" +
+                    " rotation=" + requestedId +
+                    " lastCompletedId=" + lastCompletedId +
+                    " ns=" + System.nanoTime()
+                );
+
+                send rotationDoneOut(done);
+
+                System.out.println(
+                    "TRACE ROTATION_DONE_RESENT" +
+                    " rotation=" + requestedId +
+                    " ns=" + System.nanoTime()
+                );
+
+            }else if(requestedId == lastCompletedId + 1){
+
+                System.out.println(
+                    "TRACE ROTATE_COMMAND_READY" +
+                    " rotation=" + requestedId +
+                    " ns=" + System.nanoTime()
+                );
+
+                // Exactly one physical 60-degree rotation for a new ID.
+                send rotate(true);
+
+                System.out.println(
+                    "TRACE ROTATE_COMMAND_RENDEZVOUS_COMPLETE" +
+                    " rotation=" + requestedId +
+                    " ns=" + System.nanoTime()
+                );
+
+                receive aligned;
+
+                System.out.println(
+                    "TRACE CONTROLLER_ALIGNED_RECEIVED" +
+                    " rotation=" + requestedId +
+                    " value=" + (Boolean)#aligned +
+                    " ns=" + System.nanoTime()
+                );
+
+                if((Boolean)#aligned){
+
+                    lastCompletedId = requestedId;
+                    done = "DONE|" + requestedId;
+
+                    // Synchronous completion rendezvous. If Production is
+                    // temporarily unavailable, this send waits rather than
+                    // losing a one-instant acknowledgement pulse.
+                    send rotationDoneOut(done);
+
+                    System.out.println(
+                        "TRACE ROTATION_DONE_RENDEZVOUS_COMPLETE" +
+                        " rotation=" + requestedId +
+                        " ns=" + System.nanoTime()
+                    );
+                }
+
+            }else{
+
+                // There is only one in-flight rotation in this experiment.
+                // A gap indicates an invalid transaction sequence.
+                System.err.println(
+                    "TRACE ROTATION_REQUEST_SEQUENCE_ERROR" +
+                    " requestedId=" + requestedId +
+                    " lastCompletedId=" + lastCompletedId +
+                    " ns=" + System.nanoTime()
+                );
+            }
+
+        }else{
+
+            System.err.println(
+                "TRACE INVALID_ROTATION_REQUEST" +
+                " request=" + request +
+                " ns=" + System.nanoTime()
+            );
+        }
+
+        pause;
+    }
+}

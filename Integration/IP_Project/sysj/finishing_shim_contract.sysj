@@ -1,0 +1,74 @@
+// Test-only peers; never include these in the group runtime XML.
+import nz.ac.auckland.eabs.eric.FlatShimPlan;
+
+LidLoaderFlatHarnessCD(
+    output String channel commandOut;
+    input String channel reportIn;
+    output String channel ackOut;
+)->{
+    FlatShimPlan plan = new FlatShimPlan("LID");
+    String action = ""; String value = ""; String report = "";
+    while(!plan.action().equals("FINISHED")){
+        action = plan.action(); value = plan.value();
+        if(action.equals("JOB")){ send commandOut(value); plan.sent(); }
+        else if(action.equals("ACK")){ send ackOut(value); plan.sent(); }
+        else if(action.equals("REPORT")){ receive reportIn; report = (String)#reportIn; plan.check(report); }
+        pause;
+    }
+    plan.completeSystemJ();
+    while(true){ pause; }
+}
+
+CapperFlatHarnessCD(
+    output String channel commandOut;
+    input String channel reportIn;
+    output String channel ackOut;
+)->{
+    FlatShimPlan plan = new FlatShimPlan("CAPPER");
+    String action = ""; String value = ""; String report = "";
+    while(!plan.action().equals("FINISHED")){
+        action = plan.action(); value = plan.value();
+        if(action.equals("JOB")){ send commandOut(value); plan.sent(); }
+        else if(action.equals("ACK")){ send ackOut(value); plan.sent(); }
+        else if(action.equals("REPORT")){ receive reportIn; report = (String)#reportIn; plan.check(report); }
+        pause;
+    }
+    plan.completeSystemJ();
+    while(true){ pause; }
+}
+
+LabelerFlatHarnessCD(
+    output String channel commandOut;
+    input String channel reportIn;
+    output String channel ackOut;
+)->{
+    FlatShimPlan plan = new FlatShimPlan("LABELLER");
+    String action = ""; String value = ""; String report = "";
+    while(!plan.action().equals("FINISHED")){
+        action = plan.action(); value = plan.value();
+        if(action.equals("JOB")){ send commandOut(value); plan.sent(); }
+        else if(action.equals("ACK")){ send ackOut(value); plan.sent(); }
+        else if(action.equals("REPORT")){ receive reportIn; report = (String)#reportIn; plan.check(report); }
+        pause;
+    }
+    plan.completeSystemJ();
+    while(true){ pause; }
+}
+
+UnloaderFlatHarnessCD(
+    output String channel commandOut;
+    input String channel reportIn;
+    output String channel ackOut;
+)->{
+    FlatShimPlan plan = new FlatShimPlan("UNLOADER");
+    String action = ""; String value = ""; String report = "";
+    while(!plan.action().equals("FINISHED")){
+        action = plan.action(); value = plan.value();
+        if(action.equals("JOB")){ send commandOut(value); plan.sent(); }
+        else if(action.equals("ACK")){ send ackOut(value); plan.sent(); }
+        else if(action.equals("REPORT")){ receive reportIn; report = (String)#reportIn; plan.check(report); }
+        pause;
+    }
+    plan.completeSystemJ();
+    while(true){ pause; }
+}
