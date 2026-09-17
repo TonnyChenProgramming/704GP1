@@ -194,6 +194,54 @@ public class Dao {
         }
     }
 
+    /** One order's current state for the POS "Track Order" lookup: which batch (if any)
+     * it was admitted into, that batch's status, and how many of this order's own bottles
+     * have completed. batchId/batchStatus are null while the order is still PENDING. */
+    public static class OrderStatus {
+        public final int orderId;
+        public final String customerPo;
+        public final String customerId;
+        public final String productId;
+        public final int quantity;
+        public final String status;
+        public final Integer batchId;
+        public final String batchStatus;
+        public final int completedInBatch;
+        public OrderStatus(int orderId, String customerPo, String customerId, String productId, int quantity,
+                String status, Integer batchId, String batchStatus, int completedInBatch) {
+            this.orderId = orderId;
+            this.customerPo = customerPo;
+            this.customerId = customerId;
+            this.productId = productId;
+            this.quantity = quantity;
+            this.status = status;
+            this.batchId = batchId;
+            this.batchStatus = batchStatus;
+            this.completedInBatch = completedInBatch;
+        }
+    }
+
+    /** BatchManager admits an order into exactly one batch today, so the LEFT JOIN below
+     * returns at most one row per customer_po; returns null if no order has that PO at all. */
+    public OrderStatus findOrderStatus(String customerPo) throws SQLException {
+        String sql = "SELECT o.order_id, o.customer_po, o.customer_id, o.product_id, o.quantity, o.status, "
+                + "ob.batch_id, b.status, ob.completed_quantity "
+                + "FROM Orders o "
+                + "LEFT JOIN OrderBatches ob ON ob.order_id = o.order_id "
+                + "LEFT JOIN Batches b ON b.batch_id = ob.batch_id "
+                + "WHERE o.customer_po = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, customerPo);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) { return null; }
+                Object batchIdObj = rs.getObject(7);
+                return new OrderStatus(rs.getInt(1), rs.getString(2), rs.getString(3), rs.getString(4),
+                        rs.getInt(5), rs.getString(6), batchIdObj == null ? null : ((Number) batchIdObj).intValue(),
+                        rs.getString(8), rs.getInt(9));
+            }
+        }
+    }
+
     /** Result row for the cross-order scheduling query (Section 7 of the IP report). */
     public static class PendingDemand {
         public final String productId;

@@ -91,6 +91,33 @@ cross-order merge step -- that two-step demand-consolidation behaviour is still 
 plain `RunCoordinatorIp` changes: `autoActivate` defaults to `false`, so neither existing launch
 config's behaviour is affected by this addition.
 
+`RunCoordinatorPosGui` runs the same `IpBatchManagerCD`/`coordinator_ip.xml` with
+`-Dip.gui=true` added: `IpBatchManagerModel`'s constructor then opens a Swing
+`com.g7.ip.gui.PosGuiFrame` instead of starting the console order-entry thread
+(`SharedConsole` still starts -- `SafetyMonitorModel`'s hazard/clear/reset commands
+still read from it). Same in-process pattern as Eric's own `EabsDashboardPanel`: the
+frame is handed a direct reference to the already-running model and calls straight
+into its `Dao`/`POS`/`BatchManager`/`DbWorker`, no second persistence layer, no IPC.
+"Place Order" is a cart -- add any number of lines, each just bottle capacity,
+liquid A/B percentages and quantity, no product picker (brief 4.2 defines a product
+BY its bottle size and liquid specification, so asking for one separately was
+redundant). `product_id` is invisible to the operator now; `IpBatchManagerModel.
+deriveProductId(bottleSpec, doseA, doseB)` derives it deterministically from exactly
+those three fields (e.g. `FORM-500ML-60-40`), so two lines with the identical
+capacity+mix always resolve to the same product/recipe instead of minting a
+duplicate -- and since `BatchManager` already groups PENDING orders by `product_id`,
+this also makes that grouping exactly "same formulation" now that capacity/ratio are
+freely combinable, without touching `BatchManager.java` itself. Each line gets its
+own generated PO reference and is submitted independently (`submitCartLine`);
+`-Dip.autoActivate=true` (set in this launch config) activates each as its own batch
+immediately, same as `RunCoordinatorGpPos`. "Track Order" resolves a PO reference via
+the new `Dao.findOrderStatus` query (`Orders` left-joined through `OrderBatches`/
+`Batches`) to admission state, assigned batch, and bottles completed so far -- live,
+since the digital-twin pipeline in this same process is what increments
+`OrderBatches.completed_quantity` as bottles finish. Uses its own
+`build/pos-gui-demo.db` so it never collides with the other launch configs' database
+files.
+
 `IpBatchManagerModel` also recovers from an abrupt interruption on startup (IP report
 Section 7): before checking for pending demand, it queries `Batches` for any row still
 `RUNNING` -- which, at construction time, can only be work orphaned by a previous process

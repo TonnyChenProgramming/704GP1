@@ -86,11 +86,22 @@ public final class IpBatchManagerModel {
         this.detector = detectorRef;
 
         SharedConsole.ensureStarted();
-        Thread reader = new Thread(new Runnable() {
-            public void run() { readLoop(); }
-        }, "ip-batch-manager-console");
-        reader.setDaemon(true);
-        reader.start();
+        if (Boolean.getBoolean("ip.gui")) {
+            // Swing GUI replaces the console order-entry loop (SharedConsole stays started --
+            // SafetyMonitorModel's hazard/clear/reset commands still read from it when that CD
+            // is present). Constructed in-process, same pattern as Eric's own EabsDashboardPanel:
+            // the GUI holds a direct reference to this already-running model and calls straight
+            // into submitCartLine()/lookupOrder(), never a second Dao/POS/BatchManager instance.
+            javax.swing.SwingUtilities.invokeLater(new Runnable() {
+                public void run() { new com.g7.ip.gui.PosGuiFrame(IpBatchManagerModel.this).setVisible(true); }
+            });
+        } else {
+            Thread reader = new Thread(new Runnable() {
+                public void run() { readLoop(); }
+            }, "ip-batch-manager-console");
+            reader.setDaemon(true);
+            reader.start();
+        }
 
         // Drains TwinEventBus -- the real per-bottle events IntegratedCoordinator publishes
         // as it runs -- and feeds them to the Digital Twin Assembler, entirely on the DB
@@ -319,6 +330,86 @@ public final class IpBatchManagerModel {
                 }
             }
         });
+    }
+
+    /** Reports one submitted cart line's outcome. Always invoked on the DB worker thread --
+     * a caller touching Swing components (PosGuiFrame) must hop to the EDT itself, the same
+     * contract as Eric's own VisualizationBridge.StateListener. */
+    public interface CartLineResult {
+        void onComplete(boolean accepted, boolean newFormulation, String message);
+    }
+
+    /** Reports one PO lookup's outcome (null = no such order). Same DB-worker-thread contract
+     * as CartLineResult. */
+    public interface OrderLookupResult {
+        void onComplete(Dao.OrderStatus status);
+    }
+
+    /** POS GUI entry point for the "Place Order" tab (one call per cart line). Unlike
+     * submitOrder()'s console path, the caller never picks a product_id -- it is derived
+     * deterministically from the exact (bottleSpec, doseA, doseB) combination via
+     * deriveProductId(), so two lines with the identical capacity+mix always resolve to the
+     * same product_id. That also keeps BatchManager's existing "group PENDING orders by
+     * product_id" query correct now that capacity/ratio are freely combinable: grouping by
+     * product_id is grouping by exact formulation. Validates the cheap fields inline (same
+     * reasoning as submitOrder() above) before handing the database work to the DB worker. */
+    public void submitCartLine(final String customerPo, final String customerId, final String bottleSpec,
+            final int doseA, final int doseB, final int quantity, final CartLineResult onResult) {
+        if (halted) {
+            onResult.onComplete(false, false, "Rejected(system is in FAULT/HOLD)");
+            return;
+        }
+        if (doseA < 0 || doseB < 0 || doseA + doseB < 1 || doseA + doseB > 100) {
+            onResult.onComplete(false, false, "Rejected(doseA/doseB must each be >= 0 and sum to 1-100)");
+            return;
+        }
+        if (quantity <= 0) {
+            onResult.onComplete(false, false, "Rejected(quantity must be > 0)");
+            return;
+        }
+        final String productId = deriveProductId(bottleSpec, doseA, doseB);
+        dbWorker.submit(new Runnable() {
+            public void run() {
+                try {
+                    Integer existing = dao.findMatchingRecipe(productId, doseA / 100.0, doseB / 100.0, bottleSpec);
+                    boolean isNew = existing == null;
+                    int recipeId = isNew ? dao.insertRecipe(productId, doseA / 100.0, doseB / 100.0, bottleSpec) : existing;
+                    POS.SubmitResult result = pos.submitOrder(customerPo, customerId, productId, quantity, bottleSpec, recipeId);
+                    if (result.accepted && autoActivate) {
+                        triggerBatchIfIdle();
+                    }
+                    onResult.onComplete(result.accepted, isNew, result.toString());
+                } catch (SQLException failure) {
+                    onResult.onComplete(false, false, "Rejected(database error: " + failure.getMessage() + ")");
+                }
+            }
+        });
+    }
+
+    /** POS GUI entry point for the "Track Order" tab. */
+    public void lookupOrder(final String customerPo, final OrderLookupResult onResult) {
+        if (halted) {
+            onResult.onComplete(null);
+            return;
+        }
+        dbWorker.submit(new Runnable() {
+            public void run() {
+                try {
+                    onResult.onComplete(dao.findOrderStatus(customerPo));
+                } catch (SQLException failure) {
+                    onResult.onComplete(null);
+                }
+            }
+        });
+    }
+
+    /** product_id is customer-invisible in the GUI flow (brief 4.2 defines a product BY its
+     * bottle size and liquid specification, not the other way round) -- this derives a stable
+     * id from exactly those two things, so resubmitting the identical capacity+mix always
+     * lands on the identical product_id/recipe instead of minting a duplicate. */
+    private static String deriveProductId(String bottleSpec, int doseA, int doseB) {
+        String capacity = bottleSpec.trim().toUpperCase(java.util.Locale.ROOT).replaceAll("[^A-Z0-9]", "");
+        return "FORM-" + capacity + "-" + doseA + "-" + doseB;
     }
 
     /** Drains TwinEventBus one event at a time and hands each to the DB worker -- this loop
