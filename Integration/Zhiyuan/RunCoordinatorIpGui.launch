@@ -13,7 +13,7 @@
     <stringAttribute key="org.eclipse.jdt.launching.MAIN_TYPE" value="com.systemj.SystemJRunner"/>
     <stringAttribute key="org.eclipse.jdt.launching.MODULE_NAME" value="CoordinatorSystemJ"/>
     <stringAttribute key="org.eclipse.jdt.launching.PROGRAM_ARGUMENTS" value="sysj/coordinator_ip.xml"/>
-    <stringAttribute key="org.eclipse.jdt.launching.VM_ARGUMENTS" value="-Xmx256m -Deric.finishing.flatSimulation=true -Dcoordinator.gui=true -Dip.database=build/pos-gui-demo.db -Dip.autoActivate=true -Dip.gui=true"/>
+    <stringAttribute key="org.eclipse.jdt.launching.VM_ARGUMENTS" value="-Xmx256m -Deric.finishing.flatSimulation=true -Dcoordinator.gui=true -Dip.database=build/ip-gui.db -Dip.autoActivate=true -Dip.gui=true"/>
     <stringAttribute key="org.eclipse.jdt.launching.WORKING_DIRECTORY" value="${workspace_loc:/CoordinatorSystemJ}"/>
     <stringAttribute key="org.eclipse.jdt.launching.PROJECT_ATTR" value="CoordinatorSystemJ"/>
 </launchConfiguration>

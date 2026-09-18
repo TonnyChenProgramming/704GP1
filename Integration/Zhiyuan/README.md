@@ -91,58 +91,63 @@ cross-order merge step -- that two-step demand-consolidation behaviour is still 
 plain `RunCoordinatorIp` changes: `autoActivate` defaults to `false`, so neither existing launch
 config's behaviour is affected by this addition.
 
-`RunCoordinatorPosGui` runs the same `IpBatchManagerCD`/`coordinator_ip.xml` with
-`-Dip.gui=true` added: `IpBatchManagerModel`'s constructor then opens a Swing
-`com.g7.ip.gui.PosGuiFrame` instead of starting the console order-entry thread
+`RunCoordinatorIpGui` runs the same `IpBatchManagerCD`/`coordinator_ip.xml` with
+`-Dip.gui=true` added: `IpBatchManagerModel`'s constructor then opens one Swing
+`com.g7.ip.gui.IpGuiFrame` instead of starting the console order-entry thread
 (`SharedConsole` still starts -- `SafetyMonitorModel`'s hazard/clear/reset commands
-still read from it). Same in-process pattern as Eric's own `EabsDashboardPanel`: the
-frame is handed a direct reference to the already-running model and calls straight
-into its `Dao`/`POS`/`BatchManager`/`DbWorker`, no second persistence layer, no IPC.
-"Place Order" is a cart -- add any number of lines, each just bottle capacity,
-liquid A/B percentages and quantity, no product picker (brief 4.2 defines a product
-BY its bottle size and liquid specification, so asking for one separately was
-redundant). `product_id` is invisible to the operator now; `IpBatchManagerModel.
-deriveProductId(bottleSpec, doseA, doseB)` derives it deterministically from exactly
-those three fields (e.g. `FORM-500ML-60-40`), so two lines with the identical
-capacity+mix always resolve to the same product/recipe instead of minting a
-duplicate -- and since `BatchManager` already groups PENDING orders by `product_id`,
-this also makes that grouping exactly "same formulation" now that capacity/ratio are
-freely combinable, without touching `BatchManager.java` itself. Each line gets its
-own generated PO reference and is submitted independently (`submitCartLine`);
-`-Dip.autoActivate=true` (set in this launch config) activates each as its own batch
-immediately, same as `RunCoordinatorGpPos`. "Track Order" resolves a PO reference via
-the new `Dao.findOrderStatus` query (`Orders` left-joined through `OrderBatches`/
-`Batches`) to admission state, assigned batch, and bottles completed so far -- live,
-since the digital-twin pipeline in this same process is what increments
-`OrderBatches.completed_quantity` as bottles finish. Uses its own
-`build/pos-gui-demo.db` so it never collides with the other launch configs' database
-files -- and because that file is fixed and reused across runs (not a fresh
-`build/ip-<uuid>.db`), `PosGuiFrame` seeds its PO-reference counter from
-`IpBatchManagerModel.highestPoSequence()` on startup (a `Dao.listCustomerPos()` scan for
-today's `PO-<year>-` prefix) rather than starting over at 1 -- otherwise a second launch
-against the same file would eventually regenerate a `customer_po` the database already
-has and fail its `UNIQUE` constraint on submit. The Submit button stays disabled until
-that seeding call returns.
+still read from it). Same in-process pattern as Eric's own `EabsDashboardPanel`, which
+stays a completely separate, untouched window -- `IpGuiFrame` is handed a direct
+reference to the already-running model and calls straight into its `Dao`/`POS`/
+`BatchManager`/`DbWorker`, one persistence layer, one database, shared by every tab.
+(Two earlier separate windows, `PosGuiFrame` and `FactoryGuiFrame`, were merged into
+this one frame on request, since they always shared one process and one database
+anyway.) Four tabs:
 
-`RunCoordinatorFactoryGui` adds `-Dip.factoryGui=true` on top of `RunCoordinatorPosGui`'s
-flags, so both windows open in the same process: `PosGuiFrame` (place/track orders) and the
-new `com.g7.ip.gui.FactoryGuiFrame` (the factory-facing view, as opposed to the customer-
-facing POS). `ip.gui` and `ip.factoryGui` are independent flags -- either can run alone.
-FactoryGuiFrame's first tab, Bottle Traceability, is deliberately the only tab for now (a
-production-dashboard/fault-log tab is a likely later addition, not built yet): enter a bottle
-ID (or pick one from the "recent bottles" list, populated via the new `Dao.recentBottleIds`)
-and it renders every station in `IpBatchManagerModel.EXPECTED_STATIONS`, in order, coloured by
-that specific bottle's own recorded status there -- green DONE, red FAULT, orange ABORTED, or
-grey PENDING for a station the bottle hasn't reached yet, so the operator sees exactly how far
-through the line one physical bottle has got, not just an aggregate count. The new
-`Dao.findBottleHistory` query returns the full timestamped `BottleEvents` row set (not just
-the `location:status` strings `queryStationSequence`/`DeviationDetector` already used), and
-the same `DeviationDetector.checkStationSequence` check `handleTwinEvent()` already runs
-automatically at the unloader is re-run here on demand and shown as a prominent NO DEVIATION /
-DEVIATED badge. Like Track Order, it polls every 2 seconds while a bottle's journey is still
-open and stops once it reaches a settled state (DONE at the unloader, or any FAULT/ABORTED),
-so it does not keep querying a bottle that can no longer change. Uses its own
-`build/factory-gui-demo.db`.
+- **Place Order** is a cart -- add any number of lines, each just bottle capacity,
+  liquid A/B percentages and quantity, no product picker (brief 4.2 defines a product
+  BY its bottle size and liquid specification, so asking for one separately was
+  redundant). `product_id` is invisible to the operator now; `IpBatchManagerModel.
+  deriveProductId(bottleSpec, doseA, doseB)` derives it deterministically from exactly
+  those three fields (e.g. `FORM-500ML-60-40`), so two lines with the identical
+  capacity+mix always resolve to the same product/recipe instead of minting a
+  duplicate -- and since `BatchManager` already groups PENDING orders by `product_id`,
+  this also makes that grouping exactly "same formulation" now that capacity/ratio are
+  freely combinable, without touching `BatchManager.java` itself. Each line gets its
+  own generated PO reference and is submitted independently (`submitCartLine`);
+  `-Dip.autoActivate=true` (set in this launch config) activates each as its own batch
+  immediately, same as `RunCoordinatorGpPos`. Because the database file is fixed and
+  reused across runs (not a fresh `build/ip-<uuid>.db`), the frame seeds its
+  PO-reference counter from `IpBatchManagerModel.highestPoSequence()` on startup (a
+  `Dao.listCustomerPos()` scan for today's `PO-<year>-` prefix) rather than starting
+  over at 1 -- otherwise a second launch against the same file would eventually
+  regenerate a `customer_po` the database already has and fail its `UNIQUE`
+  constraint on submit. The Submit button stays disabled until that seeding call
+  returns.
+- **Track Order** resolves a PO reference via `Dao.findOrderStatus` (`Orders`
+  left-joined through `OrderBatches`/`Batches`) to admission state, assigned batch,
+  and bottles completed so far -- live: it polls every 2 seconds until the order
+  reaches a settled state (all bottles completed, or its batch faults), since the
+  digital-twin pipeline in this same process is what increments
+  `OrderBatches.completed_quantity` as bottles finish.
+- **Track Bottle** is the per-bottle digital twin: enter a bottle ID (or pick one from
+  the "recent bottles" list, populated via `Dao.recentBottleIds`) and it renders every
+  station in `IpBatchManagerModel.EXPECTED_STATIONS`, in order, coloured by that
+  specific bottle's own recorded status there -- green DONE, red FAULT, orange
+  ABORTED, or grey PENDING for a station the bottle hasn't reached yet, so the
+  operator sees exactly how far through the line one physical bottle has got, not
+  just an aggregate count. `Dao.findBottleHistory` returns the full timestamped
+  `BottleEvents` row set (not just the `location:status` strings
+  `queryStationSequence`/`DeviationDetector` already used), and the same
+  `DeviationDetector.checkStationSequence` check `handleTwinEvent()` already runs
+  automatically at the unloader is re-run here on demand and shown as a prominent NO
+  DEVIATION / DEVIATED badge. Also polls every 2 seconds until the bottle's journey
+  settles (DONE at the unloader, or any FAULT/ABORTED).
+- **Faults History** lists every row of `Faults` (`Dao.listFaults`, newest first) with
+  an open/resolved count, refreshed on the same timer; selecting an OPEN row and
+  clicking "Resolve selected fault" prompts for a resolution note and calls the
+  existing `Dao.resolveFault`.
+
+Uses its own `build/ip-gui.db`.
 
 `IpBatchManagerModel` also recovers from an abrupt interruption on startup (IP report
 Section 7): before checking for pending demand, it queries `Batches` for any row still

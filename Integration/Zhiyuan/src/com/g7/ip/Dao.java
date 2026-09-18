@@ -568,6 +568,48 @@ public class Dao {
         }
     }
 
+    /** One row of the Faults table, for the "Faults History" GUI tab. */
+    public static class FaultRow {
+        public final int faultId;
+        public final String bottleId;
+        public final int batchId;
+        public final String deviceName;
+        public final String faultType;
+        public final String faultReason;
+        public final String faultTimestamp;
+        public final String status;
+        public final String resolvedTimestamp;
+        public final String resolution;
+        public FaultRow(int faultId, String bottleId, int batchId, String deviceName, String faultType,
+                String faultReason, String faultTimestamp, String status, String resolvedTimestamp, String resolution) {
+            this.faultId = faultId;
+            this.bottleId = bottleId;
+            this.batchId = batchId;
+            this.deviceName = deviceName;
+            this.faultType = faultType;
+            this.faultReason = faultReason;
+            this.faultTimestamp = faultTimestamp;
+            this.status = status;
+            this.resolvedTimestamp = resolvedTimestamp;
+            this.resolution = resolution;
+        }
+    }
+
+    /** Every fault on file, most recent first -- open and resolved alike, for the GUI to
+     * separate/filter as it sees fit. */
+    public List<FaultRow> listFaults() throws SQLException {
+        String sql = "SELECT fault_id, bottle_id, batch_id, device_name, fault_type, fault_reason, "
+                + "fault_timestamp, status, resolved_timestamp, resolution FROM Faults ORDER BY fault_id DESC";
+        List<FaultRow> out = new ArrayList<>();
+        try (Statement s = conn.createStatement(); ResultSet rs = s.executeQuery(sql)) {
+            while (rs.next()) {
+                out.add(new FaultRow(rs.getInt(1), rs.getString(2), rs.getInt(3), rs.getString(4), rs.getString(5),
+                        rs.getString(6), rs.getString(7), rs.getString(8), rs.getString(9), rs.getString(10)));
+            }
+        }
+        return out;
+    }
+
     public void resolveFault(int faultId, String resolution) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(
                 "UPDATE Faults SET status='RESOLVED', resolution=?, resolved_timestamp=CURRENT_TIMESTAMP WHERE fault_id=?")) {

@@ -90,13 +90,15 @@ public final class IpBatchManagerModel {
 
         SharedConsole.ensureStarted();
         if (Boolean.getBoolean("ip.gui")) {
-            // Swing GUI replaces the console order-entry loop (SharedConsole stays started --
-            // SafetyMonitorModel's hazard/clear/reset commands still read from it when that CD
-            // is present). Constructed in-process, same pattern as Eric's own EabsDashboardPanel:
-            // the GUI holds a direct reference to this already-running model and calls straight
-            // into submitCartLine()/lookupOrder(), never a second Dao/POS/BatchManager instance.
+            // One Swing GUI for everything IP/POS-side (Eric's own EabsDashboardPanel is a
+            // separate, untouched window) replaces the console order-entry loop -- SharedConsole
+            // still starts, since SafetyMonitorModel's hazard/clear/reset commands still read
+            // from it when that CD is present. Constructed in-process, same pattern as Eric's
+            // dashboard: the frame holds a direct reference to this already-running model and
+            // calls straight into its methods, one Dao/POS/BatchManager instance, one database,
+            // shared by every tab.
             javax.swing.SwingUtilities.invokeLater(new Runnable() {
-                public void run() { new com.g7.ip.gui.PosGuiFrame(IpBatchManagerModel.this).setVisible(true); }
+                public void run() { new com.g7.ip.gui.IpGuiFrame(IpBatchManagerModel.this).setVisible(true); }
             });
         } else {
             Thread reader = new Thread(new Runnable() {
@@ -104,15 +106,6 @@ public final class IpBatchManagerModel {
             }, "ip-batch-manager-console");
             reader.setDaemon(true);
             reader.start();
-        }
-        if (Boolean.getBoolean("ip.factoryGui")) {
-            // Independent opt-in flag -- can run with or without ip.gui above, same in-process,
-            // direct-reference construction pattern. Bottle traceability first (per-bottle
-            // digital twin view); production dashboard/fault log are deliberately left for a
-            // later iteration.
-            javax.swing.SwingUtilities.invokeLater(new Runnable() {
-                public void run() { new com.g7.ip.gui.FactoryGuiFrame(IpBatchManagerModel.this).setVisible(true); }
-            });
         }
 
         // Drains TwinEventBus -- the real per-bottle events IntegratedCoordinator publishes
@@ -498,6 +491,51 @@ public final class IpBatchManagerModel {
                     onResult.onComplete(dao.recentBottleIds(limit));
                 } catch (SQLException failure) {
                     onResult.onComplete(java.util.Collections.<String>emptyList());
+                }
+            }
+        });
+    }
+
+    /** Reports every fault on file, most recent first. */
+    public interface FaultsResult {
+        void onComplete(java.util.List<Dao.FaultRow> faults);
+    }
+
+    /** GUI entry point (Faults History tab). */
+    public void listFaults(final FaultsResult onResult) {
+        if (halted) {
+            onResult.onComplete(java.util.Collections.<Dao.FaultRow>emptyList());
+            return;
+        }
+        dbWorker.submit(new Runnable() {
+            public void run() {
+                try {
+                    onResult.onComplete(dao.listFaults());
+                } catch (SQLException failure) {
+                    onResult.onComplete(java.util.Collections.<Dao.FaultRow>emptyList());
+                }
+            }
+        });
+    }
+
+    /** Reports whether a fault was successfully marked resolved. */
+    public interface ResolveFaultResult {
+        void onComplete(boolean success, String message);
+    }
+
+    /** GUI entry point (Faults History tab, "Resolve" action). */
+    public void resolveFault(final int faultId, final String resolution, final ResolveFaultResult onResult) {
+        if (halted) {
+            onResult.onComplete(false, "System is in FAULT/HOLD");
+            return;
+        }
+        dbWorker.submit(new Runnable() {
+            public void run() {
+                try {
+                    dao.resolveFault(faultId, resolution);
+                    onResult.onComplete(true, "Resolved");
+                } catch (SQLException failure) {
+                    onResult.onComplete(false, failure.getMessage());
                 }
             }
         });
