@@ -36,8 +36,8 @@
             <oChannel Name="unloaderJobOut" To="UnloaderShimCD.commandIn" />
             <iChannel Name="unloaderReportIn" From="UnloaderShimCD.reportOut" />
             <oChannel Name="unloaderAckOut" To="UnloaderShimCD.ackIn" />
-            <oSignal Name="rotateTrigger" To="RotaryTableController.rotateTrigger" Class="com.systemj.ipc.SimpleClient" IP="127.0.0.1" Port="30101" />
-            <iSignal Name="tableAligned" Class="com.systemj.ipc.SimpleServer" IP="127.0.0.1" Port="30102" />
+            <oChannel Name="rotationRequestOut" To="RotaryTableController.rotationRequestIn" />
+            <iChannel Name="rotationDoneIn" From="RotaryTableController.rotationDoneOut" />
             <iSignal Name="safetyPermitLost" Class="com.systemj.ipc.SimpleServer" IP="127.0.0.1" Port="30103" />
             <iSignal Name="safetyPermitRestored" Class="com.systemj.ipc.SimpleServer" IP="127.0.0.1" Port="30104" />
             <iSignal Name="safetyResetRequested" Class="com.systemj.ipc.SimpleServer" IP="127.0.0.1" Port="30105" />
@@ -138,8 +138,8 @@
         <ClockDomain Name="RotaryTableController" Class="RotaryTableController">
             <oChannel Name="rotate" To="RotaryTablePlant.rotate" />
             <iChannel Name="aligned" From="RotaryTablePlant.aligned" />
-            <iSignal Name="rotateTrigger" Class="com.systemj.ipc.SimpleServer" IP="127.0.0.1" Port="30101" />
-            <oSignal Name="tableAligned" To="CoordinatorCD.tableAligned" Class="com.systemj.ipc.SimpleClient" IP="127.0.0.1" Port="30102" />
+            <iChannel Name="rotationRequestIn" From="CoordinatorCD.rotationRequestOut" />
+            <oChannel Name="rotationDoneOut" To="CoordinatorCD.rotationDoneIn" />
         </ClockDomain>
         <ClockDomain Name="RotaryTablePlant" Class="RotaryTablePlant">
             <iChannel Name="rotate" From="RotaryTableController.rotate" />

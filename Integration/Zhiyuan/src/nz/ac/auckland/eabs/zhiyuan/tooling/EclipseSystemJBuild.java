@@ -193,7 +193,9 @@ public final class EclipseSystemJBuild {
     private void checkRuntimePorts() throws IOException {
         List<java.net.ServerSocket> checks = new ArrayList<java.net.ServerSocket>();
         try {
-            for (int port : new int[]{30101, 30102, 30103}) {
+            // Only the three safety signals are still networked. The rotary handshake used to
+            // occupy 30101/30102 but is now an in-process rendezvous channel pair.
+            for (int port : new int[]{30103, 30104, 30105}) {
                 java.net.ServerSocket socket = new java.net.ServerSocket();
                 checks.add(socket);
                 socket.setReuseAddress(false);

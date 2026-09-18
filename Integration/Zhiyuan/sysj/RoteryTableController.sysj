@@ -1,10 +1,26 @@
+// Reliable rotary handshake (Tonny's hardened design, adopted after a reproducible
+// TABLE_ALIGNMENT_TIMEOUT). The coordinator link used to be a pair of one-instant SIGNALS
+// carried over loopback TCP (ports 30101/30102) -- the only networked link in the whole
+// system, and the only station that ever timed out. A signal is present for a single tick,
+// so a request that arrives while this CD is between ticks (it is blocked ~500 ms per
+// rotation waiting on the plant) is simply gone, and the coordinator waits for an alignment
+// that will never come. Every other station already used rendezvous channels and none of
+// them has ever timed out.
+//
+// Both directions are now String rendezvous channels, in-process: a send waits for the
+// partner rather than pulsing once and hoping. Requests carry a transaction id so a retried
+// request can be acknowledged again without rotating the physical table twice.
+//
+// The CD name stays RotaryTableController and the file name stays RoteryTableController.sysj
+// (historical spelling) so BuildAll and every coordinator_*.xml keep resolving it unchanged.
+
 RotaryTableController(
 
-    // coordinator --> controller
-    input signal rotateTrigger;
+    // coordinator --> controller: reliable request rendezvous, "ROTATE|<id>"
+    input String channel rotationRequestIn;
 
-    // controller --> coordinator
-    output signal tableAligned;
+    // controller --> coordinator: reliable completion rendezvous, "DONE|<id>"
+    output String channel rotationDoneOut;
 
     // controller --> plant
     output Boolean channel rotate;
@@ -14,28 +30,68 @@ RotaryTableController(
 
 )->{
 
+    String request = "";
+    String done = "";
+    int requestedId = 0;
+
+    // Highest transaction id whose physical rotation actually completed. Guards against
+    // rotating twice if the same request is ever delivered again.
+    int lastCompletedId = 0;
+
     while(true){
 
-        await(rotateTrigger);
+        receive rotationRequestIn;
+        request = (String)#rotationRequestIn;
 
-        System.out.println(
-            "ROTATE trigger received"
-        );
+        if(request.startsWith("ROTATE|")){
 
-        // Request one 60-degree rotation
-        send rotate(true);
+            requestedId = Integer.parseInt(request.substring(7));
 
-        // Wait until table is physically aligned
-        receive aligned;
+            if(requestedId <= lastCompletedId){
 
-        if((Boolean)#aligned){
+                // Already rotated for this id: acknowledge again, do NOT rotate the table.
+                System.out.println(
+                    "ROTATE duplicate suppressed, rotation=" + requestedId
+                    + " lastCompleted=" + lastCompletedId
+                );
 
-            System.out.println(
-                "Table aligned"
-            );
+                done = "DONE|" + requestedId;
+                send rotationDoneOut(done);
 
-            // Alignment confirms rotation completion
-            emit tableAligned;
+            }else if(requestedId == lastCompletedId + 1){
+
+                System.out.println("ROTATE request received, rotation=" + requestedId);
+
+                // Exactly one physical 60-degree rotation per new id.
+                send rotate(true);
+
+                receive aligned;
+
+                if((Boolean)#aligned){
+
+                    System.out.println("Table aligned, rotation=" + requestedId);
+
+                    lastCompletedId = requestedId;
+                    done = "DONE|" + requestedId;
+
+                    // Rendezvous completion: waits for the coordinator rather than losing a
+                    // one-instant acknowledgement pulse.
+                    send rotationDoneOut(done);
+                }
+
+            }else{
+
+                // Only one rotation is ever in flight, so a gap means the coordinator and
+                // this controller disagree about the transaction sequence.
+                System.err.println(
+                    "ROTATION_REQUEST_SEQUENCE_ERROR requested=" + requestedId
+                    + " lastCompleted=" + lastCompletedId
+                );
+            }
+
+        }else{
+
+            System.err.println("INVALID_ROTATION_REQUEST " + request);
         }
 
         pause;

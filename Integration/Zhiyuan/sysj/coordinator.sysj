@@ -26,8 +26,11 @@ CoordinatorCD(
     output String channel unloaderJobOut;
     input String channel unloaderReportIn;
     output String channel unloaderAckOut;
-    output signal rotateTrigger;
-    input signal tableAligned;
+    // Reliable rotary handshake -- rendezvous channels, not one-instant signals. See
+    // RoteryTableController.sysj for why: the old rotateTrigger/tableAligned signal pair was
+    // the only networked link in the system and the only station that ever timed out.
+    output String channel rotationRequestOut;
+    input String channel rotationDoneIn;
     input signal safetyPermitLost;
     input signal safetyPermitRestored;
     input signal safetyResetRequested;
@@ -64,9 +67,25 @@ CoordinatorCD(
     ||
     {
         IntegratedCoordinator model = (IntegratedCoordinator)#stateModel;
+        int rotationId = 0;
+        String request = "";
+        String done = "";
         while(true){
             if(model.requestRotation()){
-                emit rotateTrigger; pause; await(tableAligned); model.aligned();
+                rotationId++;
+                request = "ROTATE|" + rotationId;
+                // Both halves are rendezvous: the request waits for the controller instead of
+                // pulsing once, and the completion waits for us instead of being missed while
+                // this reaction is still between emit and await.
+                send rotationRequestOut(request);
+                receive rotationDoneIn;
+                done = (String)#rotationDoneIn;
+                if(done.equals("DONE|" + rotationId)){
+                    model.aligned();
+                }else{
+                    System.err.println("COORDINATOR ROTATION_DONE_MISMATCH expected=DONE|"
+                        + rotationId + " actual=" + done);
+                }
             }
             pause;
         }
