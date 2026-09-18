@@ -149,6 +149,33 @@ anyway.) Four tabs:
 
 Uses its own `build/ip-gui.db`.
 
+`RunCoordinatorIpGuiHazard` adds three flags on top of `RunCoordinatorIpGui`:
+`-Dsafety.autoSensor=true -Dsafety.hazardAfterMs=20000 -Dsafety.clearAfterMs=6000`. With
+`safety.autoSensor` set, `SafetyMonitorModel` starts a `HazardSensorSimulator` -- a genuinely
+autonomous stand-in for the human-presence/environmental sensor in brief 4.1.2, deliberately
+its own class (mirrors Tonny's/Eric's plant models each being their own class on their own
+timer, not reacting to console input): 20 seconds after launch it detects a hazard with no
+operator input at all, holds it for 6 seconds, then clears it -- console `hazard`/`clear`
+still work too (unchanged, a manual override), since `hazardRequested()`/`restoredRequested()`/
+`resetRequested()` (all `safety_monitor.sysj` ever polls) don't care which path set them. The
+sensor never calls `triggerReset()` itself -- resuming production after a hazard stays a
+deliberate operator decision, only ever reachable via the console `reset` command today (a GUI
+button is a natural next step, not built yet). Every other launch config is completely
+unaffected, since `HazardSensorSimulator.startIfEnabled()` is a no-op unless the flag is set.
+
+This also fixed a real bug hit while testing it through `IpGuiFrame`: `IntegratedCoordinator.
+reset()` used to silently clear its `response` field to `""` on a successful safety recovery,
+instead of sending anything back to whichever batch source is attached. Since
+`IpBatchManagerModel`/`BatchManagerModel` both permanently latch `halted=true` the moment they
+see a `FAULT|` result and had no way to ever clear it again, a batch source that had already
+seen one fault stayed stuck rejecting every order forever afterwards -- even though the
+coordinator itself had genuinely recovered and printed "ready for next order". `reset()` now
+sends `RECOVERED|<batch>` on the exact same `batchDrainedOut` channel `DRAINED`/`REJECTED`/
+`FAULT` already use (the `.sysj` reaction just forwards whatever `response()` holds, so no
+`.sysj`/XML change was needed), and both `resultReceived()` methods clear `halted` on it;
+`IpBatchManagerModel`'s also immediately re-checks pending demand, matching what already
+happens after a normal `DRAINED`.
+
 `IpBatchManagerModel` also recovers from an abrupt interruption on startup (IP report
 Section 7): before checking for pending demand, it queries `Batches` for any row still
 `RUNNING` -- which, at construction time, can only be work orphaned by a previous process

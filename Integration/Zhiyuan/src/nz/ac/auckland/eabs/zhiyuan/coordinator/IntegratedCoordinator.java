@@ -269,7 +269,13 @@ public final class IntegratedCoordinator {
         }
         for (Station s : machines.values()) { s.job = null; s.taken = false; s.busy = false; s.deadline = 0; }
         rotating = false; rotationOffered = false; labelDone = false;
-        fault = ""; response = ""; phase = "WAIT_ORDER";
+        fault = ""; phase = "WAIT_ORDER";
+        // Sent on the exact same batchDrainedOut channel as DRAINED/REJECTED/FAULT (the .sysj
+        // reaction just forwards whatever response() holds) -- without this, a batch source
+        // that latches "halted" on FAULT (BatchManagerModel, IpBatchManagerModel) has no way
+        // to learn a safety reset happened and stays permanently stuck rejecting new orders
+        // even though the coordinator itself is genuinely back at WAIT_ORDER.
+        response = "RECOVERED|" + (batch.isEmpty() ? "NONE" : batch);
         System.out.println("COORDINATOR SAFETY RESET -- line reconciled, ready for next order.");
     }
 

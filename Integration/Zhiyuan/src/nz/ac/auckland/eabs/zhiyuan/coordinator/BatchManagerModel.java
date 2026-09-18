@@ -91,6 +91,13 @@ public final class BatchManagerModel {
         } else if (result.startsWith("FAULT|")) {
             halted = true;
             System.out.println("[BatchManager] " + result + " -- coordinator is HOLDING. No further batches will be sent this session.");
+        } else if (result.startsWith("RECOVERED|")) {
+            // Sent once by IntegratedCoordinator.reset() (the safety-specific recovery path --
+            // never for a machine fault, which stays permanently HOLDING). Without this branch
+            // halted, once latched true on an earlier FAULT|, could never clear again even
+            // after a real safety reset, and every later order would be rejected forever.
+            halted = false;
+            System.out.println("[BatchManager] " + result + " -- coordinator recovered from safety HOLD, resuming order acceptance.");
         } else {
             System.out.println("[BatchManager] Unexpected result: " + result);
         }

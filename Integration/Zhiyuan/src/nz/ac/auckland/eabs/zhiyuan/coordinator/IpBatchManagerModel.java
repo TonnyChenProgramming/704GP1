@@ -670,6 +670,15 @@ public final class IpBatchManagerModel {
         } else if (result.startsWith("FAULT|")) {
             halted = true;
             System.out.println("[IpBatchManager] " + result + " -- coordinator is HOLDING. No further batches will be sent this session.");
+        } else if (result.startsWith("RECOVERED|")) {
+            // Sent once by IntegratedCoordinator.reset() (the safety-specific recovery path --
+            // never for a machine fault, which stays permanently HOLDING). halted was latched
+            // true on the earlier FAULT| and, before this, had no way to ever clear again --
+            // any orders placed while halted are still sitting PENDING, so check for them now
+            // instead of waiting for the operator to resubmit something.
+            halted = false;
+            System.out.println("[IpBatchManager] " + result + " -- coordinator recovered from safety HOLD, resuming order acceptance.");
+            triggerBatchIfIdle();
         } else {
             System.out.println("[IpBatchManager] Unexpected result: " + result);
         }
