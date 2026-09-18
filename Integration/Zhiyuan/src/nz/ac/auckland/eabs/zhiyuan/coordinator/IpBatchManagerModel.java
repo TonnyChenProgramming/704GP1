@@ -32,8 +32,11 @@ import java.util.UUID;
 public final class IpBatchManagerModel {
     /** The real production route, in station order -- matches IntegratedCoordinator's own
      * ROUTE/twinLocationFor labels exactly, so a bottle's persisted BottleEvents sequence can
-     * be compared against it (IP report Section 7, recipe-deviation detection). */
-    private static final List<String> EXPECTED_STATIONS = Arrays.asList(
+     * be compared against it (IP report Section 7, recipe-deviation detection). Public so the
+     * factory GUI's bottle-traceability view (com.g7.ip.gui.FactoryGuiFrame) can render every
+     * expected stop -- including ones a bottle hasn't reached yet -- without duplicating this
+     * list. */
+    public static final List<String> EXPECTED_STATIONS = Arrays.asList(
             "loader", "conveyor_in", "filler", "lid", "capper", "conveyor_out", "labeller", "unloader");
 
     private final Dao dao;
@@ -101,6 +104,15 @@ public final class IpBatchManagerModel {
             }, "ip-batch-manager-console");
             reader.setDaemon(true);
             reader.start();
+        }
+        if (Boolean.getBoolean("ip.factoryGui")) {
+            // Independent opt-in flag -- can run with or without ip.gui above, same in-process,
+            // direct-reference construction pattern. Bottle traceability first (per-bottle
+            // digital twin view); production dashboard/fault log are deliberately left for a
+            // later iteration.
+            javax.swing.SwingUtilities.invokeLater(new Runnable() {
+                public void run() { new com.g7.ip.gui.FactoryGuiFrame(IpBatchManagerModel.this).setVisible(true); }
+            });
         }
 
         // Drains TwinEventBus -- the real per-bottle events IntegratedCoordinator publishes
@@ -438,6 +450,55 @@ public final class IpBatchManagerModel {
                     // caller's counter still starts somewhere sane rather than blocking forever.
                 }
                 onResult.onComplete(highest);
+            }
+        });
+    }
+
+    /** Reports one bottle's full history (null if unknown) plus a deviation check against
+     * EXPECTED_STATIONS -- the same check handleTwinEvent() already runs automatically the
+     * moment a bottle reaches the unloader, re-run here on demand for the traceability GUI. */
+    public interface BottleHistoryResult {
+        void onComplete(Dao.BottleHistory history, DeviationDetector.Result deviation);
+    }
+
+    /** Factory GUI entry point (bottle traceability tab). */
+    public void lookupBottleHistory(final String bottleId, final BottleHistoryResult onResult) {
+        if (halted) {
+            onResult.onComplete(null, null);
+            return;
+        }
+        dbWorker.submit(new Runnable() {
+            public void run() {
+                try {
+                    Dao.BottleHistory history = dao.findBottleHistory(bottleId);
+                    DeviationDetector.Result deviation = history == null
+                            ? null : detector.checkStationSequence(bottleId, EXPECTED_STATIONS);
+                    onResult.onComplete(history, deviation);
+                } catch (SQLException failure) {
+                    onResult.onComplete(null, null);
+                }
+            }
+        });
+    }
+
+    /** Reports the most recently active bottle ids, newest first. */
+    public interface RecentBottlesResult {
+        void onComplete(java.util.List<String> bottleIds);
+    }
+
+    /** Factory GUI entry point: populates the "recent bottles" picker. */
+    public void recentBottleIds(final int limit, final RecentBottlesResult onResult) {
+        if (halted) {
+            onResult.onComplete(java.util.Collections.<String>emptyList());
+            return;
+        }
+        dbWorker.submit(new Runnable() {
+            public void run() {
+                try {
+                    onResult.onComplete(dao.recentBottleIds(limit));
+                } catch (SQLException failure) {
+                    onResult.onComplete(java.util.Collections.<String>emptyList());
+                }
             }
         });
     }

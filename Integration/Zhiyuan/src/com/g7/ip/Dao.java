@@ -404,6 +404,88 @@ public class Dao {
         }
     }
 
+    /** One timestamped BottleEvents row, for the digital-twin traceability GUI. */
+    public static class BottleEventRow {
+        public final String location;
+        public final String status;
+        public final String eventTimestamp;
+        public BottleEventRow(String location, String status, String eventTimestamp) {
+            this.location = location;
+            this.status = status;
+            this.eventTimestamp = eventTimestamp;
+        }
+    }
+
+    /** One bottle's full timestamped history plus the batch/order/product/recipe context taken
+     * from its first recorded row (every row for a given bottle carries the same context, so
+     * the first is as good as any). */
+    public static class BottleHistory {
+        public final String bottleId;
+        public final String workpieceId;
+        public final Integer orderId;
+        public final int batchId;
+        public final String productId;
+        public final Integer recipeId;
+        public final List<BottleEventRow> events;
+        public BottleHistory(String bottleId, String workpieceId, Integer orderId, int batchId,
+                String productId, Integer recipeId, List<BottleEventRow> events) {
+            this.bottleId = bottleId;
+            this.workpieceId = workpieceId;
+            this.orderId = orderId;
+            this.batchId = batchId;
+            this.productId = productId;
+            this.recipeId = recipeId;
+            this.events = events;
+        }
+    }
+
+    /** Full timestamped station-by-station history for one bottle, for the digital-twin
+     * traceability GUI. Returns null if this bottle_id has no BottleEvents rows at all. */
+    public BottleHistory findBottleHistory(String bottleId) throws SQLException {
+        String sql = "SELECT workpiece_id, order_id, batch_id, product_id, recipe_id, location, status, event_timestamp "
+                + "FROM BottleEvents WHERE bottle_id=? ORDER BY event_id";
+        List<BottleEventRow> events = new ArrayList<>();
+        String workpieceId = null;
+        Integer orderId = null;
+        int batchId = 0;
+        String productId = null;
+        Integer recipeId = null;
+        boolean first = true;
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, bottleId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    if (first) {
+                        workpieceId = rs.getString(1);
+                        int orderIdRaw = rs.getInt(2); orderId = rs.wasNull() ? null : orderIdRaw;
+                        batchId = rs.getInt(3);
+                        productId = rs.getString(4);
+                        int recipeIdRaw = rs.getInt(5); recipeId = rs.wasNull() ? null : recipeIdRaw;
+                        first = false;
+                    }
+                    events.add(new BottleEventRow(rs.getString(6), rs.getString(7), rs.getString(8)));
+                }
+            }
+        }
+        if (first) { return null; }
+        return new BottleHistory(bottleId, workpieceId, orderId, batchId, productId, recipeId, events);
+    }
+
+    /** Most recently active bottle_ids (by their latest event), newest first -- lets the
+     * traceability GUI offer a pick-list instead of requiring the operator to already know an
+     * id. */
+    public List<String> recentBottleIds(int limit) throws SQLException {
+        List<String> out = new ArrayList<>();
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT bottle_id FROM BottleEvents GROUP BY bottle_id ORDER BY MAX(event_id) DESC LIMIT ?")) {
+            ps.setInt(1, limit);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) { out.add(rs.getString(1)); }
+            }
+        }
+        return out;
+    }
+
     /** Full station-by-station history for one bottle, in order — used by deviation detection and the GUI panel. */
     public List<String> queryStationSequence(String bottleId) throws SQLException {
         List<String> out = new ArrayList<>();

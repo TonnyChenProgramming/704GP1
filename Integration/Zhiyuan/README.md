@@ -124,6 +124,26 @@ against the same file would eventually regenerate a `customer_po` the database a
 has and fail its `UNIQUE` constraint on submit. The Submit button stays disabled until
 that seeding call returns.
 
+`RunCoordinatorFactoryGui` adds `-Dip.factoryGui=true` on top of `RunCoordinatorPosGui`'s
+flags, so both windows open in the same process: `PosGuiFrame` (place/track orders) and the
+new `com.g7.ip.gui.FactoryGuiFrame` (the factory-facing view, as opposed to the customer-
+facing POS). `ip.gui` and `ip.factoryGui` are independent flags -- either can run alone.
+FactoryGuiFrame's first tab, Bottle Traceability, is deliberately the only tab for now (a
+production-dashboard/fault-log tab is a likely later addition, not built yet): enter a bottle
+ID (or pick one from the "recent bottles" list, populated via the new `Dao.recentBottleIds`)
+and it renders every station in `IpBatchManagerModel.EXPECTED_STATIONS`, in order, coloured by
+that specific bottle's own recorded status there -- green DONE, red FAULT, orange ABORTED, or
+grey PENDING for a station the bottle hasn't reached yet, so the operator sees exactly how far
+through the line one physical bottle has got, not just an aggregate count. The new
+`Dao.findBottleHistory` query returns the full timestamped `BottleEvents` row set (not just
+the `location:status` strings `queryStationSequence`/`DeviationDetector` already used), and
+the same `DeviationDetector.checkStationSequence` check `handleTwinEvent()` already runs
+automatically at the unloader is re-run here on demand and shown as a prominent NO DEVIATION /
+DEVIATED badge. Like Track Order, it polls every 2 seconds while a bottle's journey is still
+open and stops once it reaches a settled state (DONE at the unloader, or any FAULT/ABORTED),
+so it does not keep querying a bottle that can no longer change. Uses its own
+`build/factory-gui-demo.db`.
+
 `IpBatchManagerModel` also recovers from an abrupt interruption on startup (IP report
 Section 7): before checking for pending demand, it queries `Batches` for any row still
 `RUNNING` -- which, at construction time, can only be work orphaned by a previous process

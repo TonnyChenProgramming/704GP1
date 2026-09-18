@@ -411,8 +411,9 @@ public final class PosGuiFrame extends JFrame {
 
     /** productId is customer-invisible plumbing (see IpBatchManagerModel.deriveProductId) --
      * this reverses it back into the capacity/mix the customer actually asked for, falling
-     * back to the raw id for orders that came in through the older console/product-id path. */
-    private static String formatFormulation(String productId) {
+     * back to the raw id for orders that came in through the older console/product-id path.
+     * Package-private so FactoryGuiFrame's bottle-traceability header can reuse it too. */
+    static String formatFormulation(String productId) {
         if (productId == null) { return "Formulation -"; }
         Matcher m = DERIVED_PRODUCT.matcher(productId);
         if (m.matches()) {
