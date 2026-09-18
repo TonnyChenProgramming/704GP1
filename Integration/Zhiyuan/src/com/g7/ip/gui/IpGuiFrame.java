@@ -186,6 +186,7 @@ public final class IpGuiFrame extends JFrame {
             }
             refreshFaults();
             refreshSafetyStrip();
+            refreshRecentBottles();
         });
         pollTimer.start();
     }
@@ -193,6 +194,7 @@ public final class IpGuiFrame extends JFrame {
     // ================================================================== Safety strip
 
     private final JLabel safetyPill = new JLabel("", SwingConstants.CENTER);
+    private final JButton safetyClearButton = new JButton("Clear Hazard");
     private final JButton safetyResetButton = new JButton("Reset / Resume Production");
 
     /** Persistent bar under the tabs (not its own tab) -- a hazard can happen while the
@@ -209,6 +211,18 @@ public final class IpGuiFrame extends JFrame {
         safetyPill.setPreferredSize(new Dimension(240, 26));
         safetyPill.setFont(safetyPill.getFont().deriveFont(Font.BOLD, 11.5f));
         strip.add(safetyPill, BorderLayout.WEST);
+
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+        safetyClearButton.addActionListener(event -> {
+            boolean wired = model.triggerSafetyClear();
+            if (!wired) {
+                JOptionPane.showMessageDialog(this,
+                        "No Safety Monitor is wired into this profile's coordinator_*.xml.",
+                        "Not available", JOptionPane.INFORMATION_MESSAGE);
+            }
+            refreshSafetyStrip();
+        });
+        buttons.add(safetyClearButton);
         safetyResetButton.addActionListener(event -> {
             boolean wired = model.triggerSafetyReset();
             if (!wired) {
@@ -218,7 +232,8 @@ public final class IpGuiFrame extends JFrame {
             }
             refreshSafetyStrip();
         });
-        strip.add(safetyResetButton, BorderLayout.EAST);
+        buttons.add(safetyResetButton);
+        strip.add(buttons, BorderLayout.EAST);
         return strip;
     }
 
@@ -689,9 +704,15 @@ public final class IpGuiFrame extends JFrame {
         row.setAlignmentX(JPanel.LEFT_ALIGNMENT);
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 34));
 
+        // Fixed widths on the WEST/EAST labels, not just their natural text width -- otherwise
+        // the CENTER region (and therefore the centered status text within it) starts and ends
+        // at a different pixel position on every row, since station names ("Loader" vs
+        // "Conveyor (in)") and timestamps (a real one vs the blank " " placeholder) are
+        // different lengths. Fixing both makes every row's status column line up.
         JLabel nameLabel = new JLabel(stationName);
         nameLabel.setForeground(textColor);
         nameLabel.setFont(nameLabel.getFont().deriveFont(Font.BOLD, 12.5f));
+        nameLabel.setPreferredSize(new Dimension(150, nameLabel.getPreferredSize().height));
         row.add(nameLabel, BorderLayout.WEST);
 
         JLabel statusLabel = new JLabel(status, SwingConstants.CENTER);
@@ -702,6 +723,7 @@ public final class IpGuiFrame extends JFrame {
         JLabel timeLabel = new JLabel(timestamp == null ? " " : timestamp, SwingConstants.RIGHT);
         timeLabel.setForeground(textColor);
         timeLabel.setFont(timeLabel.getFont().deriveFont(Font.PLAIN, 10.5f));
+        timeLabel.setPreferredSize(new Dimension(150, timeLabel.getPreferredSize().height));
         row.add(timeLabel, BorderLayout.EAST);
 
         JPanel wrap = new JPanel(new BorderLayout());

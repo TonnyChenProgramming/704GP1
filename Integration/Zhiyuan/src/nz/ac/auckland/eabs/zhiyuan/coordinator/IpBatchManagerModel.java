@@ -575,6 +575,18 @@ public final class IpBatchManagerModel {
         return true;
     }
 
+    /** GUI entry point for a "Clear Hazard" button: forwards to whichever SafetyMonitorModel
+     * is attached to SharedConsole, exactly as typing 'clear' at the console already does.
+     * Manual, not automatic -- lets an operator confirm the condition is back to normal
+     * without waiting for HazardSensorSimulator's own timer, without changing what the sensor
+     * itself reports. Same "not wired in" contract as triggerSafetyReset(). */
+    public boolean triggerSafetyClear() {
+        SafetyMonitorModel safety = SharedConsole.safety();
+        if (safety == null) { return false; }
+        safety.triggerClear();
+        return true;
+    }
+
     /** GUI status indicator: true while the attached SafetyMonitorModel currently reports an
      * active hazard. False (not unsafe) if no SafetyMonitorCD is present in this profile. */
     public boolean isSafetyHazardActive() {

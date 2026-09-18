@@ -141,7 +141,15 @@ anyway.) Four tabs:
   `DeviationDetector.checkStationSequence` check `handleTwinEvent()` already runs
   automatically at the unloader is re-run here on demand and shown as a prominent NO
   DEVIATION / DEVIATED badge. Also polls every 2 seconds until the bottle's journey
-  settles (DONE at the unloader, or any FAULT/ABORTED).
+  settles (DONE at the unloader, or any FAULT/ABORTED). The "recent bottles" list is
+  refreshed on that same 2-second timer now (it originally only refreshed once at
+  startup and as a side effect of looking up a specific bottle, so a newly-admitted
+  bottle could sit invisible in the dropdown for a long time if the operator hadn't
+  happened to look anything up yet). Each journey row's station/status/timestamp now
+  has fixed-width name/timestamp labels either side of the centred status text, so
+  DONE/PENDING/FAULT lines up in the same column on every row -- `BorderLayout`'s
+  CENTER region otherwise starts and ends at a different pixel position per row
+  depending on the station name's and timestamp's own text width.
 - **Faults History** lists every row of `Faults` (`Dao.listFaults`, newest first) with
   an open/resolved count, refreshed on the same timer; selecting an OPEN row and
   clicking "Resolve selected fault" prompts for a resolution note and calls the
@@ -172,7 +180,10 @@ routing -- gained a package-private `safety()` accessor, and `IpBatchManagerMode
 `triggerSafetyReset()`/`isSafetyHazardActive()`/`isHalted()` that forward to it. Clicking Reset
 does exactly what typing `reset` at the console already does (same `triggerReset()` guard: a
 no-op while still unsafe), so this is a second way to reach the existing behaviour, not new
-behaviour.
+behaviour. A "Clear Hazard" button sits next to it (`triggerSafetyClear()`, same pattern) --
+manual, not automatic: it lets an operator confirm the condition is back to normal without
+waiting for `HazardSensorSimulator`'s own timer, without changing what the sensor itself
+reports (the sensor's later `triggerClear()` call is simply a no-op by then).
 
 This also fixed a real bug hit while testing it through `IpGuiFrame`: `IntegratedCoordinator.
 reset()` used to silently clear its `response` field to `""` on a successful safety recovery,
