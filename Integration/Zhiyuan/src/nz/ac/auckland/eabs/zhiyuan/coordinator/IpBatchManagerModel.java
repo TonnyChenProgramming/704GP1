@@ -143,13 +143,9 @@ public final class IpBatchManagerModel {
             public void run() {
                 try {
                     for (int batchId : dao.queryRunningBatchIds()) {
-                        List<String> incomplete = dao.queryIncompleteBottlesInBatch(batchId, "unloader");
-                        for (String bottleId : incomplete) {
-                            dao.markBottleAborted(bottleId);
-                        }
-                        dao.markBatchFault(batchId);
+                        int abortedCount = closeBatchAsFault(batchId);
                         System.out.println("[IpBatchManager] Recovered batch " + batchId + " left RUNNING by a previous, "
-                                + "abruptly-ended process: " + incomplete.size() + " incomplete bottle(s) marked ABORTED, "
+                                + "abruptly-ended process: " + abortedCount + " incomplete bottle(s) marked ABORTED, "
                                 + "batch closed as FAULT.");
                     }
                 } catch (SQLException failure) {
@@ -157,6 +153,24 @@ public final class IpBatchManagerModel {
                 }
             }
         });
+    }
+
+    /** Marks every bottle in this batch with no terminal DONE at the unloader as ABORTED and
+     * closes the batch itself as FAULT. Shared by the startup power-loss recovery check above
+     * and live in-session FAULT handling below -- the same reconciliation, just triggered by
+     * "a previous process died" vs. "this process's own coordinator just went on HOLD". Without
+     * the live case, a batch a FAULT interrupts mid-session stayed status='RUNNING' in the
+     * database until the next process restart, which is what made Track Order get stuck
+     * showing "ADMITTED - IN PRODUCTION" forever for any order in that batch: its batchStatus
+     * never became FAULT, so applyOrderTrackResult() never had a reason to stop polling it.
+     * Must already be running on the DB worker thread; returns the number of bottles aborted. */
+    private int closeBatchAsFault(int batchId) throws SQLException {
+        List<String> incomplete = dao.queryIncompleteBottlesInBatch(batchId, "unloader");
+        for (String bottleId : incomplete) {
+            dao.markBottleAborted(bottleId);
+        }
+        dao.markBatchFault(batchId);
+        return incomplete.size();
     }
 
     /** Recipes are a pre-existing catalog in the real design (POS validates against them,
@@ -541,6 +555,33 @@ public final class IpBatchManagerModel {
         });
     }
 
+    /** GUI status indicator: true while no batch can be sent (a fault -- machine or safety --
+     * is holding the coordinator, per the last DRAINED/REJECTED/FAULT/RECOVERED result seen).
+     * Pure in-memory read, no database access. */
+    public boolean isHalted() {
+        return halted;
+    }
+
+    /** GUI entry point for a "Reset" button: forwards to whichever SafetyMonitorModel is
+     * attached to SharedConsole, exactly as typing 'reset' at the console already does (see
+     * SafetyMonitorModel.triggerReset() for why this is deliberately never automatic).
+     * Returns false without doing anything if no SafetyMonitorCD is present in this profile --
+     * every XML wiring that has one constructs it well before this could ever be reachable
+     * from a GUI click, so null here means "not wired in", not "not ready yet". */
+    public boolean triggerSafetyReset() {
+        SafetyMonitorModel safety = SharedConsole.safety();
+        if (safety == null) { return false; }
+        safety.triggerReset();
+        return true;
+    }
+
+    /** GUI status indicator: true while the attached SafetyMonitorModel currently reports an
+     * active hazard. False (not unsafe) if no SafetyMonitorCD is present in this profile. */
+    public boolean isSafetyHazardActive() {
+        SafetyMonitorModel safety = SharedConsole.safety();
+        return safety != null && safety.isUnsafe();
+    }
+
     /** product_id is customer-invisible in the GUI flow (brief 4.2 defines a product BY its
      * bottle size and liquid specification, not the other way round) -- this derives a stable
      * id from exactly those two things, so resubmitting the identical capacity+mix always
@@ -670,6 +711,27 @@ public final class IpBatchManagerModel {
         } else if (result.startsWith("FAULT|")) {
             halted = true;
             System.out.println("[IpBatchManager] " + result + " -- coordinator is HOLDING. No further batches will be sent this session.");
+            String[] f = result.split("\\|", -1);
+            if (f.length > 1 && !"NONE".equals(f[1])) {
+                try {
+                    final int faultedBatchId = Integer.parseInt(f[1]);
+                    dbWorker.submit(new Runnable() {
+                        public void run() {
+                            try {
+                                int abortedCount = closeBatchAsFault(faultedBatchId);
+                                System.out.println("[IpBatchManager] Batch " + faultedBatchId + " closed as FAULT: "
+                                        + abortedCount + " incomplete bottle(s) marked ABORTED.");
+                            } catch (SQLException failure) {
+                                System.err.println("[IpBatchManager] Could not close faulted batch " + faultedBatchId
+                                        + ": " + failure.getMessage());
+                            }
+                        }
+                    });
+                } catch (NumberFormatException ignored) {
+                    // Non-numeric batch id (the console-typed GP-only profile's own faults) --
+                    // nothing to close in this database.
+                }
+            }
         } else if (result.startsWith("RECOVERED|")) {
             // Sent once by IntegratedCoordinator.reset() (the safety-specific recovery path --
             // never for a machine fault, which stays permanently HOLDING). halted was latched

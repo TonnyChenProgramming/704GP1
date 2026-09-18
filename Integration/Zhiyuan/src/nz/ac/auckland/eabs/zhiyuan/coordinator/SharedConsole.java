@@ -22,6 +22,15 @@ final class SharedConsole {
         ensureStarted();
     }
 
+    /** The attached SafetyMonitorModel, if SafetyMonitorCD is present in this profile (every
+     * XML wiring that includes it constructs one very early, well before any GUI button click
+     * could reach this) -- null otherwise. Lets IpBatchManagerModel forward a GUI-triggered
+     * reset exactly the way a typed 'reset' already does, without IpGuiFrame needing its own
+     * reference to a completely separate clock domain's model object. */
+    static SafetyMonitorModel safety() {
+        return safety;
+    }
+
     static synchronized void ensureStarted() {
         if (started) { return; }
         started = true;

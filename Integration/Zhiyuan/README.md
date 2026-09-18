@@ -159,9 +159,20 @@ operator input at all, holds it for 6 seconds, then clears it -- console `hazard
 still work too (unchanged, a manual override), since `hazardRequested()`/`restoredRequested()`/
 `resetRequested()` (all `safety_monitor.sysj` ever polls) don't care which path set them. The
 sensor never calls `triggerReset()` itself -- resuming production after a hazard stays a
-deliberate operator decision, only ever reachable via the console `reset` command today (a GUI
-button is a natural next step, not built yet). Every other launch config is completely
-unaffected, since `HazardSensorSimulator.startIfEnabled()` is a no-op unless the flag is set.
+deliberate operator decision. Every other launch config is completely unaffected, since
+`HazardSensorSimulator.startIfEnabled()` is a no-op unless the flag is set.
+
+`IpGuiFrame` now has a persistent strip under the tabs (visible regardless of which tab is
+selected, since a hazard can happen while the operator is looking at any of them) showing a
+SAFE / HAZARD ACTIVE / ON HOLD status pill plus a "Reset / Resume Production" button. Getting
+there needed a small bridge: `IpGuiFrame` only ever holds a reference to `IpBatchManagerModel`
+(a completely separate clock domain's model object from `SafetyMonitorModel`, with no existing
+link between them), so `SharedConsole` -- which both already attach to for console input
+routing -- gained a package-private `safety()` accessor, and `IpBatchManagerModel` gained
+`triggerSafetyReset()`/`isSafetyHazardActive()`/`isHalted()` that forward to it. Clicking Reset
+does exactly what typing `reset` at the console already does (same `triggerReset()` guard: a
+no-op while still unsafe), so this is a second way to reach the existing behaviour, not new
+behaviour.
 
 This also fixed a real bug hit while testing it through `IpGuiFrame`: `IntegratedCoordinator.
 reset()` used to silently clear its `response` field to `""` on a successful safety recovery,
@@ -175,6 +186,15 @@ sends `RECOVERED|<batch>` on the exact same `batchDrainedOut` channel `DRAINED`/
 `.sysj`/XML change was needed), and both `resultReceived()` methods clear `halted` on it;
 `IpBatchManagerModel`'s also immediately re-checks pending demand, matching what already
 happens after a normal `DRAINED`.
+
+The same reconciliation (mark every incomplete bottle `ABORTED`, close the batch as `FAULT`)
+now also runs live, the moment a `FAULT|` result arrives during a running session -- not only
+at the next process startup. Without this, a batch a hazard interrupted mid-session stayed
+`status='RUNNING'` in the database for the rest of that process's life (only a future restart's
+startup recovery, below, would ever have closed it), which is what made Track Order get stuck
+showing "ADMITTED - IN PRODUCTION" forever for any order in that batch: its `batchStatus` never
+became `FAULT`, so `applyOrderTrackResult()` never had a reason to stop polling it. The two
+call sites (live and startup) share one `closeBatchAsFault(batchId)` helper.
 
 `IpBatchManagerModel` also recovers from an abrupt interruption on startup (IP report
 Section 7): before checking for pending demand, it queries `Batches` for any row still

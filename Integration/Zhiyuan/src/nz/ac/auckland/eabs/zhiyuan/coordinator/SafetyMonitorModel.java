@@ -102,4 +102,11 @@ public final class SafetyMonitorModel {
         resetPending = false;
         return true;
     }
+
+    /** Current sensor reading, for a GUI status indicator -- true from triggerHazard() until
+     * the matching triggerClear(). Read-only; does not consume anything (unlike the
+     * *Requested() methods above, which are one-shot edge triggers for the .sysj poll). */
+    public synchronized boolean isUnsafe() {
+        return unsafe;
+    }
 }

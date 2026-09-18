@@ -152,15 +152,20 @@ public final class IpGuiFrame extends JFrame {
         tabs.addTab("Track Order", buildTrackOrderTab());
         tabs.addTab("Track Bottle", buildTrackBottleTab());
         tabs.addTab("Faults History", buildFaultsHistoryTab());
-        setContentPane(tabs);
+
+        JPanel content = new JPanel(new BorderLayout());
+        content.add(tabs, BorderLayout.CENTER);
+        content.add(buildSafetyStrip(), BorderLayout.SOUTH);
+        setContentPane(content);
 
         addLine();
-        setMinimumSize(new Dimension(1180, 780));
+        setMinimumSize(new Dimension(1180, 810));
         pack();
         setLocationRelativeTo(null);
 
         refreshRecentBottles();
         refreshFaults();
+        refreshSafetyStrip();
 
         // Seed the PO counter from whatever this database already has under today's prefix --
         // see IpBatchManagerModel.highestPoSequence for why this must not simply start at 1.
@@ -180,8 +185,56 @@ public final class IpGuiFrame extends JFrame {
                         SwingUtilities.invokeLater(() -> applyBottleResult(lastLookedUpBottle, history, deviation)));
             }
             refreshFaults();
+            refreshSafetyStrip();
         });
         pollTimer.start();
+    }
+
+    // ================================================================== Safety strip
+
+    private final JLabel safetyPill = new JLabel("", SwingConstants.CENTER);
+    private final JButton safetyResetButton = new JButton("Reset / Resume Production");
+
+    /** Persistent bar under the tabs (not its own tab) -- a hazard can happen while the
+     * operator is looking at any of the four tabs, so this stays visible regardless of which
+     * one is selected, the same reasoning as Eric's own dashboard keeping its safety summary
+     * in a fixed header rather than behind a tab. */
+    private JPanel buildSafetyStrip() {
+        JPanel strip = new JPanel(new BorderLayout(10, 0));
+        strip.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(1, 0, 0, 0, Color.GRAY),
+                BorderFactory.createEmptyBorder(6, 10, 6, 10)));
+        safetyPill.setOpaque(true);
+        safetyPill.setForeground(Color.WHITE);
+        safetyPill.setPreferredSize(new Dimension(240, 26));
+        safetyPill.setFont(safetyPill.getFont().deriveFont(Font.BOLD, 11.5f));
+        strip.add(safetyPill, BorderLayout.WEST);
+        safetyResetButton.addActionListener(event -> {
+            boolean wired = model.triggerSafetyReset();
+            if (!wired) {
+                JOptionPane.showMessageDialog(this,
+                        "No Safety Monitor is wired into this profile's coordinator_*.xml.",
+                        "Not available", JOptionPane.INFORMATION_MESSAGE);
+            }
+            refreshSafetyStrip();
+        });
+        strip.add(safetyResetButton, BorderLayout.EAST);
+        return strip;
+    }
+
+    private void refreshSafetyStrip() {
+        boolean unsafe = model.isSafetyHazardActive();
+        boolean halted = model.isHalted();
+        if (unsafe) {
+            safetyPill.setText("HAZARD ACTIVE");
+            safetyPill.setBackground(FAULT);
+        } else if (halted) {
+            safetyPill.setText("ON HOLD -- RESET REQUIRED");
+            safetyPill.setBackground(HOLDING);
+        } else {
+            safetyPill.setText("SAFE");
+            safetyPill.setBackground(READY);
+        }
     }
 
     // ================================================================== Place Order
