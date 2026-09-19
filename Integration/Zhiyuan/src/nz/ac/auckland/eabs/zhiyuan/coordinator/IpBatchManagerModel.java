@@ -53,7 +53,21 @@ public final class IpBatchManagerModel {
 
     private String pendingFrame = null;
     private String awaitingResultFor = null; // null = no batch currently in flight
+    /** Stops NEW PRODUCTION: set on a coordinator FAULT| (and if the database never opened),
+     * cleared by RECOVERED|. Gates order submission and batch activation only. It deliberately
+     * does NOT gate the GUI's read-only queries -- see databaseUnavailable(). */
     private volatile boolean halted = false;
+
+    /** Gate for the GUI's read-only queries (and fault resolution, which records what an
+     * operator did but never affects production). A coordinator HOLD stops production, not
+     * inspection: the fault that caused a hold is exactly what the operator needs to look at.
+     * Previously these queries were gated on halted, so during any hold Track Order reported
+     * an existing order as NOT FOUND and Faults History refreshed itself empty -- and since a
+     * device fault's hold is permanent for the session, that fault could never be viewed in
+     * the session in which it happened. Only a missing database makes a query impossible. */
+    private boolean databaseUnavailable() {
+        return dao == null;
+    }
 
     public IpBatchManagerModel() {
         this.autoActivate = Boolean.getBoolean("ip.autoActivate");
@@ -407,7 +421,7 @@ public final class IpBatchManagerModel {
 
     /** POS GUI entry point for the "Track Order" tab. */
     public void lookupOrder(final String customerPo, final OrderLookupResult onResult) {
-        if (halted) {
+        if (databaseUnavailable()) {
             onResult.onComplete(null);
             return;
         }
@@ -435,7 +449,7 @@ public final class IpBatchManagerModel {
      * this prefix and returning the highest suffix found (0 if none) lets the caller seed its
      * counter to continue from there instead of restarting at 1 every launch. */
     public void highestPoSequence(final String prefix, final PoSequenceResult onResult) {
-        if (halted) {
+        if (databaseUnavailable()) {
             onResult.onComplete(0);
             return;
         }
@@ -470,7 +484,7 @@ public final class IpBatchManagerModel {
 
     /** Factory GUI entry point (bottle traceability tab). */
     public void lookupBottleHistory(final String bottleId, final BottleHistoryResult onResult) {
-        if (halted) {
+        if (databaseUnavailable()) {
             onResult.onComplete(null, null);
             return;
         }
@@ -495,7 +509,7 @@ public final class IpBatchManagerModel {
 
     /** Factory GUI entry point: populates the "recent bottles" picker. */
     public void recentBottleIds(final int limit, final RecentBottlesResult onResult) {
-        if (halted) {
+        if (databaseUnavailable()) {
             onResult.onComplete(java.util.Collections.<String>emptyList());
             return;
         }
@@ -517,7 +531,7 @@ public final class IpBatchManagerModel {
 
     /** GUI entry point (Faults History tab). */
     public void listFaults(final FaultsResult onResult) {
-        if (halted) {
+        if (databaseUnavailable()) {
             onResult.onComplete(java.util.Collections.<Dao.FaultRow>emptyList());
             return;
         }
@@ -539,8 +553,8 @@ public final class IpBatchManagerModel {
 
     /** GUI entry point (Faults History tab, "Resolve" action). */
     public void resolveFault(final int faultId, final String resolution, final ResolveFaultResult onResult) {
-        if (halted) {
-            onResult.onComplete(false, "System is in FAULT/HOLD");
+        if (databaseUnavailable()) {
+            onResult.onComplete(false, "Database unavailable");
             return;
         }
         dbWorker.submit(new Runnable() {

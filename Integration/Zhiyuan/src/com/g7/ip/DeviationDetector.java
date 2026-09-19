@@ -31,6 +31,22 @@ public class DeviationDetector {
      * Compares the bottle's recorded station:status sequence against the
      * expected sequence for the core ABS flow. Any missing, extra, or
      * out-of-order station, or any FAULT entry, counts as a deviation.
+     *
+     * A bottle that was ABORTED before completion is deliberately NOT a
+     * deviation: "deviated" is a process-quality verdict (this bottle was
+     * built, but not the way the recipe specifies), whereas ABORTED is a
+     * lifecycle outcome (the run was interrupted from outside -- a safety
+     * halt or an abrupt stop -- before the bottle could finish). Every
+     * station such a bottle did reach may have executed perfectly.
+     *
+     * Without this branch an aborted bottle is always reported as deviated,
+     * because its history is necessarily short AND its abort row carries a
+     * physical-position label (input, table0..table5, label, output -- see
+     * IntegratedCoordinator.reset) drawn from a different vocabulary than
+     * the route stations, so the positional comparison below can never
+     * match. The FAULT scan deliberately runs FIRST: a bottle that genuinely
+     * faulted and was only later swept up by a safety reset should still be
+     * reported by its fault, which is the more informative signal.
      */
     public Result checkStationSequence(String bottleId, List<String> expectedStations) throws SQLException {
         List<String> actual = dao.queryStationSequence(bottleId);
@@ -38,6 +54,13 @@ public class DeviationDetector {
         for (String entry : actual) {
             if (entry.endsWith(":FAULT")) {
                 return new Result(true, "fault recorded at " + entry.split(":")[0]);
+            }
+        }
+
+        for (String entry : actual) {
+            if (entry.endsWith(":ABORTED")) {
+                return new Result(false, "aborted at " + entry.split(":")[0]
+                        + " before completion -- no recipe verdict applies");
             }
         }
 
